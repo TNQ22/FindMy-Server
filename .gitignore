@@ -144,4 +144,5 @@ __pycache__/
 anisette-data/
 venv/
 .venv/
-guide.txt
+notes.txt
+dev.env

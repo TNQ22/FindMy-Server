@@ -9,11 +9,39 @@ from app.database import AsyncSessionLocal
 from app.models import User, ICloudAccount, Device, LocationReport
 from app.services.icloud_service import restore_apple_account, fetch_reports_from_icloud, serialize_apple_account
 from app.services.decrypt_service import decrypt_report, extract_private_key_from_device_json
-from app.services.email_service import send_low_battery_alert
+from app.services.email_service import send_low_battery_alert, send_icloud_status_alert
 
 logger = logging.getLogger("sync_service")
 
 scheduler = AsyncIOScheduler()
+
+
+async def handle_icloud_failure(db, account_rec, reason: str):
+    """
+    Mark iCloud account as alerted and send email to the owner if enabled.
+    """
+    if not account_rec.is_alerted:
+        account_rec.is_alerted = True
+        account_rec.last_error = reason
+        await db.commit()
+
+        if account_rec.user and account_rec.user.email:
+            import json
+            import asyncio
+            user_settings = {}
+            try:
+                user_settings = json.loads(account_rec.user.settings_json or "{}")
+            except Exception:
+                pass
+
+            email_enabled = user_settings.get("email_alerts_enabled", True)
+            if email_enabled:
+                logger.warning(f"Sending iCloud failure alert email to {account_rec.user.email} for Apple ID {account_rec.apple_id}")
+                asyncio.create_task(
+                    send_icloud_status_alert(account_rec.user.email, account_rec.apple_id, reason)
+                )
+            else:
+                logger.info(f"Skipping iCloud alert email for {account_rec.apple_id} (user disabled email alerts).")
 
 
 async def run_sync_task() -> dict:
@@ -31,7 +59,7 @@ async def run_sync_task() -> dict:
     async with AsyncSessionLocal() as db:
         # ── 1. Fetch active iCloud accounts ───────────────────────────────────
         result = await db.execute(
-            select(ICloudAccount).where(ICloudAccount.is_active == True)
+            select(ICloudAccount).options(joinedload(ICloudAccount.user)).where(ICloudAccount.is_active == True)
         )
         accounts = result.scalars().all()
 
@@ -58,14 +86,20 @@ async def run_sync_task() -> dict:
         # ── 3. Fetch reports from Apple for each device ───────────────────────
         active_accounts = []
         for account_rec in accounts:
-            apple_acc = await restore_apple_account(account_rec.state_json)
-            if apple_acc.login_state == LoginState.LOGGED_IN:
-                active_accounts.append((account_rec, apple_acc))
-            else:
-                logger.warning(
-                    f"Skipping sync for Apple ID {account_rec.apple_id}: "
-                    f"Login state is {apple_acc.login_state}"
-                )
+            try:
+                apple_acc = await restore_apple_account(account_rec.state_json)
+                if apple_acc.login_state == LoginState.LOGGED_IN:
+                    active_accounts.append((account_rec, apple_acc))
+                else:
+                    st_name = apple_acc.login_state.name if hasattr(apple_acc.login_state, 'name') else str(apple_acc.login_state)
+                    reason = "Yêu cầu xác thực 2FA" if "2FA" in st_name else f"Trạng thái đăng nhập: {st_name} (Hết hạn hoặc mất kết nối)"
+                    logger.warning(
+                        f"Skipping sync for Apple ID {account_rec.apple_id}: {reason}"
+                    )
+                    await handle_icloud_failure(db, account_rec, reason)
+            except Exception as e:
+                logger.error(f"Error restoring Apple account {account_rec.apple_id}: {e}")
+                await handle_icloud_failure(db, account_rec, f"Lỗi khôi phục tài khoản: {str(e)}")
 
         if not active_accounts:
             logger.info("No active Apple accounts for background sync. Skipping sync.")
@@ -178,6 +212,11 @@ async def run_sync_task() -> dict:
                 db.add(new_rep)
                 total_new += 1
 
+            # Reset error/alert state on successful sync
+            if account_rec.is_alerted or account_rec.last_error:
+                account_rec.is_alerted = False
+                account_rec.last_error = None
+
             # Save updated account state
             account_rec.last_used_at = datetime.now(timezone.utc)
             account_rec.fetch_count  = (getattr(account_rec, "fetch_count", 0) or 0) + 1
@@ -191,6 +230,7 @@ async def run_sync_task() -> dict:
 
         except Exception as e:
             logger.error(f"Sync failed for Apple ID {account_rec.apple_id}: {e}", exc_info=True)
+            await handle_icloud_failure(db, account_rec, f"Lỗi đồng bộ Apple ID: {str(e)}")
 
     return {
         "new_reports":     total_new,

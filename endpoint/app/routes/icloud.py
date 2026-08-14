@@ -136,12 +136,16 @@ async def login_icloud(
             acc_rec.user_id = current_user.id
             acc_rec.state_json = state_json
             acc_rec.is_active = True
+            acc_rec.is_alerted = False
+            acc_rec.last_error = None
         else:
             acc_rec = ICloudAccount(
                 user_id=current_user.id,
                 apple_id=body.apple_id,
                 state_json=state_json,
-                is_active=True
+                is_active=True,
+                is_alerted=False,
+                last_error=None
             )
             db.add(acc_rec)
 
@@ -213,6 +217,9 @@ async def submit_icloud_2fa(
     try:
         account, state = await submit_2fa_code(acc_rec.state_json, body.method_index, body.code)
         acc_rec.state_json = serialize_apple_account(account)
+        if state == LoginState.LOGGED_IN:
+            acc_rec.is_alerted = False
+            acc_rec.last_error = None
         await db.commit()
 
         return await get_icloud_status(current_user=current_user, db=db)

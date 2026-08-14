@@ -1,112 +1,170 @@
-# 🛰️ FindMy Server
+# FindMy Server
 
-Hệ thống máy chủ mạng lưới **Apple FindMy** tự triển khai (Self-hosted) hiện đại, đóng gói Docker hoàn chỉnh với tính năng **Hồ chứa iCloud dùng chung (Shared iCloud Pool)**, **Đăng nhập Google OAuth** và **Tự động đồng bộ vị trí ngầm 24/7**.
+Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới **Apple Find My**, được đóng gói trọn gói bằng Docker. Hỗ trợ theo dõi vị trí các thiết bị OpenHaystack / AirTag tự chế (ESP32, NRF5x...) 24/7 một cách an toàn và bảo mật. Hỗ trợ đăng nhập nhiều người dùng bằng Google OAuth.
 
-![Architecture](images/dashboard_web.png)
+![Giao diện FindMy Server](images/dashboard_web.png)
 
 ---
 
+## Screenshots
+
+<details><summary>Website</summary>
+
+### Web
+![Dashboard](images/dashboard_web_swipe_acction.png)
+![Dashboard](images/history_web_light.png)
+![Dashboard](images/accessories_web.png)
+![Dashboard](images/settings_web.png)
+
+</details>
+
+---
 ## 🌟 Tính Năng Nổi Bật
 
-- 👥 **Shared iCloud Dùng Chung (Shared iCloud Pool)**:
-  - Thêm nhiều tài khoản Apple ID vào một hồ chứa dùng chung.
-  - Tự động xoay vòng tài khoản (Round-Robin) và tự động bỏ qua các tài khoản bị lỗi/kẹt 2FA.
-  - Hỗ trợ xác thực 2FA tương tác trực tiếp (Thiết bị tin cậy & Tin nhắn SMS) với tính năng điền sẵn email thông minh.
+- 👥 **Hồ Chứa iCloud Dùng Chung (Shared iCloud Pool)**:
+  - Thêm nhiều tài khoản Apple ID để tự động xoay vòng truy vấn vị trí, tránh bị giới hạn tần suất từ Apple.
+  - Hỗ trợ xác thực 2FA trực tiếp (Thiết bị tin cậy hoặc SMS).
+- 📧 **Cảnh Báo Qua Email (SMTP)**:
+  - **Cảnh báo tài khoản iCloud**: Tự động gửi email khi tài khoản Apple ID bị hết hạn phiên đăng nhập, yêu cầu xác thực lại (2FA), hoặc gặp sự cố kết nối với Apple.
+  - **Cảnh báo pin yếu**: Tự động gửi email thông báo cho người dùng khi thẻ định vị bị yếu pin hoặc sắp cạn pin.
 
-- 🔒 **Đăng Nhập Google OAuth & Đồng Bộ Server**:
-  - Đăng nhập bảo mật tuyệt đối qua Google OAuth.
-  - Đồng bộ 24/7 danh sách thiết bị, Thẻ định vị (Tag) và cài đặt cá nhân trên mọi trình duyệt và thiết bị di động.
+    Hệ thống tự động giải mã trạng thái pin từ các bản tin của mạng Apple Find My và phân loại thành **4 mức**:
 
-- ⚡ **Tự Động Nạp Vị Trí Ngầm 24/7**:
-  - Tự động gom bản tin vị trí mới từ Apple FindMy Network mỗi 60 phút một lần (có thể tùy chỉnh qua biến `SYNC_INTERVAL_MINUTES`).
-  - Không cần giữ trình duyệt mở—vị trí của các Tag luôn được máy chủ tự động cập nhật liên tục vào CSDL.
+    | Mức mã hóa (Bit) | Trạng thái | Tỷ lệ pin ước tính | Cảnh báo Email |
+    | :---: | :--- | :---: | :--- |
+    | `00` | 🟢 **Đầy / Tốt (`ok`)** | ~75% – 100% | Không |
+    | `01` | 🟡 **Trung bình (`medium`)** | ~25% – 75% | Không |
+    | `10` | 🟠 **Yếu (`low`)** | ~10% – 25% | 📧 **Gửi email cảnh báo** |
+    | `11` | 🔴 **Rất yếu / Sắp cạn (`criticalLow`)** | < 10% | 📧 **Gửi email cảnh báo khẩn cấp** |
 
-- 🗺️ **Bản Đồ Hiện Đại & Giao Diện Mượt Mà**:
-  - Giao diện OpenStreetMap sắc nét, tự động hỗ trợ Chế độ Tối (Dark Mode).
-  - Định vị thiết bị GPS và căn chỉnh góc nhìn mượt mà, giữ nguyên mức Zoom không bị nhảy Zoom Out đột ngột.
-  - Bật thông báo Toast phản hồi trạng thái tức thì khi F5 hoặc nạp thủ công.
+  > 💡 **Cơ chế gửi mail thông minh:** Email chỉ được gửi 1 lần khi trạng thái chuyển sang lỗi hoặc pin yếu (tránh spam). Khi sự cố được khắc phục (đăng nhập lại hoặc thay pin mới), hệ thống sẽ tự động đặt lại cờ cảnh báo.
 
-- 🐳 **Triển Khai 1-Click Với Docker Compose**:
-  - Đóng gói container trọn gói bao gồm **Flutter Web Frontend**, **FastAPI Backend** và **Anisette v3 Server**.
-
----
-
-## 🏗️ Sơ Đồ Kiến Trúc Hệ Thống
-
-```
-                        ┌───────────────────────────────┐
-                        │   Flutter Web App (Port 8080) │
-                        └──────────────┬────────────────┘
-                                       │ REST API / JWT
-                                       ▼
-                        ┌───────────────────────────────┐
-                        │  FastAPI Backend (Port 6176)  │
-                        └───────┬───────────────┬───────┘
-                                │               │
-          Anisette Headers      │               │  Bản tin vị trí
-                                ▼               ▼
-            ┌───────────────────────┐       ┌───────────────────────┐
-            │ Anisette v3 (Port 6969)│       │  Apple FindMy Network │
-            └───────────────────────┘       └───────────────────────┘
-```
+- 🔒 **Đăng Nhập Google OAuth & Phân Quyền**: Đăng nhập an toàn bằng tài khoản Google, phân quyền Admin và User riêng biệt.
+- ⚡ **Tự Động Đồng Bộ Vị Trí 24/7**: Máy chủ tự động tải và giải mã vị trí ngầm định kỳ vào cơ sở dữ liệu mà không cần giữ trình duyệt mở.
+- 🗺️ **Lịch Sử Di Chuyển Thông Minh**:
+  - Tự động gom các vị trí lân cận thành điểm dừng và hiển thị thời gian lưu trú.
+  - Kích thước icon điểm dừng co giãn theo thời gian lưu lại.
+- 📦 **Tất Cả Trong Một (All-in-One Docker)**: Giao diện Web (Flutter) và Backend (FastAPI) được đóng gói chung vào một container duy nhất (Port `6176`).
 
 ---
 
-## 🚀 Hướng Dẫn Khởi Chạy Nhanh (Docker Compose)
+## Hardware setup
 
-### 1. Yêu Cầu Tiên Quyết
-- Đã cài đặt [Docker](https://www.docker.com/) và [Docker Compose](https://docs.docker.com/compose/).
+1. Head over to the [releases](https://github.com/dchristl/macless-haystack/releases/latest) section and download `generate_keys.py` and your needed firmware (ESP32 or NRF5x) zip file.
 
-### 2. Cấu Hình Biến Môi Trường
+2. Execute the `generate_keys.py` script to generate your keypair. (Note: dependency `cryptography` is needed. Install it with `pip install cryptography`)
 
-Tạo một tệp `.env` tại thư mục gốc của dự án:
+3. Unzip the firmware and flash it to your device (see [Install ESP32-firmware with your key](firmware/ESP32/README.md) or [Install NRF5x-firmware with your key](firmware/nrf5x/README.md))
+
+###### Note: In general, any OpenHaystack-compatible device or its firmware is also compatible with Macless-Haystack (i.e. [the ST17H66](https://github.com/biemster/FindMy/tree/main/Lenze_ST17H66)). Typically, only the Base64-encoded advertisement key is required, which can be found in the .keys file after key generation
+
+---
+
+## 🚀 Khởi Chạy FindMy Server Nhanh Với Docker Compose
+
+### 1. Tạo file `.env`
+
+Tạo file `.env` trong thư mục dự án với nội dung mẫu:
 
 ```env
-# Cấu hình Google OAuth Client ID
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+# Google OAuth (Bắt buộc để đăng nhập)
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 
-# Mã Secret đính kèm JWT của Backend
-JWT_SECRET=super-secret-findmy-key-change-in-production
+# Chu kỳ tự động lấy vị trí (phút), không nên để thấp hơn 15 phút để tránh bị block
+SYNC_INTERVAL_MINUTES=60
 
-# Chu kỳ tự động nạp vị trí ngầm (Tính theo phút)
-SYNC_INTERVAL_MINUTES=15
+# Danh sách email Admin (cách nhau bởi dấu phẩy)
+ADMIN_EMAILS=admin@example.com
+
+# (Tùy chọn) Cấu hình gửi mail cảnh báo Pin yếu
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=FindMy Server <your-email@gmail.com>
 ```
 
-### 3. Khởi Chạy Hệ Thống
+---
 
-Chạy lệnh sau để build và khởi chạy toàn bộ các dịch vụ:
+### 2. Khởi chạy bằng Docker Compose
+
+Tạo file `docker-compose.yml`:
+
+```yaml
+services:
+  anisette:
+    image: dadoum/anisette-v3-server:latest
+    container_name: findmy-anisette
+    restart: unless-stopped
+    #ports:
+    #  - "6969:6969"
+    volumes:
+      - anisette_data:/home/Alcoholic/.config/anisette-v3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  findmy-server:
+    image: tnq22/findmy-server:latest
+    container_name: findmy-server
+    restart: unless-stopped
+    ports:
+      - "6176:6176"
+    environment:
+      - ANISETTE_SERVER_URL=http://anisette:6969
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - JWT_SECRET=${JWT_SECRET:-super-secret-findmy-key-change-in-production}
+      - SYNC_INTERVAL_MINUTES=${SYNC_INTERVAL_MINUTES:-60}
+      - DEBUG_LOGS=${DEBUG_LOGS:-false}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+    volumes:
+      - ./database:/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - anisette
+volumes:
+  anisette_data:
+
+```
+
+Chạy lệnh để khởi động:
 
 ```bash
-docker-compose up --build -d
+docker compose up -d
 ```
 
-### 4. Cổng Truy Cập
-- 📱 **Giao diện Web (Frontend)**: [http://localhost:8080](http://localhost:8080)
-- ⚙️ **Tài liệu REST API (Backend Swagger)**: [http://localhost:6176/docs](http://localhost:6176/docs)
-- 🔑 **Dịch vụ Anisette v3 Server**: `http://localhost:6969`
+---
+
+### 3. Truy Cập Ứng Dụng
+
+- 🌐 **Giao diện Web**: [http://localhost:6176](http://localhost:6176)
+- 📖 **API Docs (Swagger)**: [http://localhost:6176/docs](http://localhost:6176/docs)
 
 ---
 
-## ⚙️ Bảng Biến Môi Trường Cấu Hình
+## 🛠️ Cài Đặt Thẻ Định Vị (Hardware Tag)
 
-| Biến Môi Trường | Mô Tả | Giá Trị Mặc Định |
-| :--- | :--- | :--- |
-| `GOOGLE_CLIENT_ID` | Client ID dùng để xác thực Đăng nhập Google OAuth | *Bắt buộc để Đăng nhập Web* |
-| `JWT_SECRET` | Khóa bảo mật tạo Token phiên làm việc cho Backend | `super-secret-findmy-key...` |
-| `SYNC_INTERVAL_MINUTES` | Chu kỳ thời gian (phút) tự động nạp vị trí ngầm | `15` |
-| `ANISETTE_SERVER_URL` | Địa chỉ URL kết nối đến Anisette Server container | `http://anisette:6969` |
-| `DEBUG_LOGS` | Bật/tắt ghi nhật ký chi tiết trong Backend | `true` |
+1. Sử dụng script `generate_keys.py` để tạo cặp khóa định vị Apple Find My.
+2. Nạp (flash) firmware trong thư mục `firmware/` (hỗ trợ **ESP32**, **NRF51**, **NRF52**...) vào thiết bị.
+3. Đăng nhập vào giao diện Web FindMy Server và thêm thẻ bằng khóa Base64 đã tạo.
 
 ---
 
-## 🛠️ Cài Đặt Thẻ Định Vị Phần Cứng (Hardware Tag)
+## 📜 Ghi Nhận (Credits)
 
-1. Tạo cặp khóa định vị Apple FindMy bằng công cụ tạo khóa trong thư mục `firmware/`.
-2. Nạp (flash) khóa công khai đã tạo vào thiết bị phần cứng tương thích (ESP32, NRF51, NRF52, ST17H66 hoặc các thiết bị tương thích OpenHaystack).
-3. Thêm khóa quảng cáo dạng Base64 vào bảng điều khiển **FindMy Server** trên Web.
-
----
-
-## 📜 Giấy Phép & Ghi Nhận
-
-Dự án này tích hợp và phát triển dựa trên nhiều nền tảng mã nguồn mở FindMy uy tín bao gồm OpenHaystack, FindMy.py và Anisette v3 Server.
+Dự án phát triển và tối ưu hóa dựa trên các mã nguồn mở:
+- [OpenHaystack](https://github.com/seemoo-lab/openhaystack)
+- [FindMy.py](https://github.com/malmeloo/FindMy.py)
+- [Anisette-v3-Server](https://github.com/Dadoum/anisette-v3-server)
+- [Macless-Haystack](https://github.com/dchristl/macless-haystack)

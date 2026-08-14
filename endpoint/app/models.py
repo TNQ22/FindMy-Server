@@ -27,6 +27,8 @@ class ICloudAccount(Base):
     apple_id: Mapped[str] = mapped_column(String(255), nullable=False)
     state_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_alerted: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     fetch_count: Mapped[int] = mapped_column(Integer, default=0)
     last_used_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

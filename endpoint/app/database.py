@@ -34,6 +34,12 @@ def run_direct_sqlite_migration():
             if "last_used_at" not in columns:
                 print("Direct Migration: Adding last_used_at column to icloud_accounts...")
                 cursor.execute("ALTER TABLE icloud_accounts ADD COLUMN last_used_at DATETIME;")
+            if "is_alerted" not in columns:
+                print("Direct Migration: Adding is_alerted column to icloud_accounts...")
+                cursor.execute("ALTER TABLE icloud_accounts ADD COLUMN is_alerted BOOLEAN DEFAULT 0;")
+            if "last_error" not in columns:
+                print("Direct Migration: Adding last_error column to icloud_accounts...")
+                cursor.execute("ALTER TABLE icloud_accounts ADD COLUMN last_error TEXT;")
 
             cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='icloud_accounts';")
             row = cursor.fetchone()

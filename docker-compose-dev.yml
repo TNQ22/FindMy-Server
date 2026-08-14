@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     ports:
       - "6969:6969"
+    volumes:
+      - anisette_data:/home/Alcoholic/.config/anisette-v3
     logging:
       driver: "json-file"
       options:
@@ -31,6 +33,8 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - ADMIN_EMAILS=${ADMIN_EMAILS}
+    env_file:
+      - dev.env
     volumes:
       - "D:/DATA/FindMy Server/database:/app/data"
     logging:
@@ -40,3 +44,5 @@ services:
         max-file: "3"
     depends_on:
       - anisette
+volumes:
+  anisette_data:
