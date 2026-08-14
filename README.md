@@ -48,18 +48,6 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
 
 ---
 
-## Hardware setup
-
-1. Head over to the [releases](https://github.com/dchristl/macless-haystack/releases/latest) section and download `generate_keys.py` and your needed firmware (ESP32 or NRF5x) zip file.
-
-2. Execute the `generate_keys.py` script to generate your keypair. (Note: dependency `cryptography` is needed. Install it with `pip install cryptography`)
-
-3. Unzip the firmware and flash it to your device (see [Install ESP32-firmware with your key](firmware/ESP32/README.md) or [Install NRF5x-firmware with your key](firmware/nrf5x/README.md))
-
-###### Note: In general, any OpenHaystack-compatible device or its firmware is also compatible with Macless-Haystack (i.e. [the ST17H66](https://github.com/biemster/FindMy/tree/main/Lenze_ST17H66)). Typically, only the Base64-encoded advertisement key is required, which can be found in the .keys file after key generation
-
----
-
 ## 🚀 Khởi Chạy FindMy Server Nhanh Với Docker Compose
 
 ### 1. Tạo file `.env`
@@ -82,6 +70,9 @@ SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 SMTP_FROM=FindMy Server <your-email@gmail.com>
+
+# Thay đổi thành mã ngẫu nhiên
+JWT_SECRET:hrn23jbvad5k8iHkjatijjjaf788923kjkjkjtkopukhw7wfgnynnyoww6rnrc4jybw6avxmzvcdrqipjt7qwh
 ```
 
 ---
@@ -155,9 +146,15 @@ docker compose up -d
 
 ## 🛠️ Cài Đặt Thẻ Định Vị (Hardware Tag)
 
-1. Sử dụng script `generate_keys.py` để tạo cặp khóa định vị Apple Find My.
-2. Nạp (flash) firmware trong thư mục `firmware/` (hỗ trợ **ESP32**, **NRF51**, **NRF52**...) vào thiết bị.
-3. Đăng nhập vào giao diện Web FindMy Server và thêm thẻ bằng khóa Base64 đã tạo.
+1. Hãy truy cập mục [releases](https://github.com/dchristl/macless-haystack/releases/latest) và tải xuống tệp `generate_keys.py` cùng tệp zip firmware bạn cần (ESP32 hoặc NRF5x).
+
+2. Chạy tập lệnh `generate_keys.py` để tạo cặp khóa của bạn. (Lưu ý: cần có thư viện phụ thuộc `cryptography`. Hãy cài đặt nó bằng lệnh `pip install cryptography`).
+
+3. Giải nén firmware và nạp nó vào thiết bị của bạn (xem hướng dẫn [Cài đặt firmware ESP32 với khóa của bạn](firmware/ESP32/README.md) hoặc [Cài đặt firmware NRF5x với khóa của bạn](firmware/nrf5x/README.md)).
+
+4. Đăng nhập vào giao diện Web FindMy Server và thêm thẻ bằng khóa Base64 đã tạo.
+
+###### Lưu ý: Nói chung, bất kỳ thiết bị hoặc firmware nào tương thích với OpenHaystack cũng sẽ tương thích với Macless-Haystack (ví dụ: [ST17H66](https://github.com/biemster/FindMy/tree/main/Lenze_ST17H66)). Thông thường, chỉ cần khóa quảng cáo được mã hóa Base64, bạn có thể tìm thấy nó trong tệp .keys sau khi tạo khóa
 
 ---
 
