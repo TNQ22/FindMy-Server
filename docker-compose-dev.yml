@@ -1,0 +1,42 @@
+services:
+  anisette:
+    image: dadoum/anisette-v3-server:latest
+    container_name: findmy-anisette
+    restart: unless-stopped
+    ports:
+      - "6969:6969"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: findmy-server
+    restart: unless-stopped
+    ports:
+      - "6176:6176"
+    environment:
+      - ANISETTE_SERVER_URL=http://anisette:6969
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - JWT_SECRET=${JWT_SECRET:-super-secret-findmy-key-change-in-production}
+      - SYNC_INTERVAL_MINUTES=${SYNC_INTERVAL_MINUTES:-30}
+      - DEBUG_LOGS=${DEBUG_LOGS:-true}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+    volumes:
+      - "D:/DATA/FindMy Server/database:/app/data"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - anisette
