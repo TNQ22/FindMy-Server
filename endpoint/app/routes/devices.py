@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,9 +19,32 @@ async def list_devices(
     result = await db.execute(select(Device).where(Device.user_id == current_user.id))
     devices = result.scalars().all()
     from datetime import timezone
+    has_updates = False
     for d in devices:
+        if d.hashed_adv_key:
+            latest = await db.execute(
+                select(LocationReport)
+                .where(LocationReport.hashed_adv_key == d.hashed_adv_key)
+                .where(LocationReport.latitude.isnot(None))
+                .order_by(LocationReport.timestamp_published.desc())
+                .limit(1)
+            )
+            latest_rep = latest.scalar_one_or_none()
+            if latest_rep:
+                rep_dt = datetime.fromtimestamp(latest_rep.timestamp_published / 1000, tz=timezone.utc)
+                curr_seen = d.last_seen_at.replace(tzinfo=timezone.utc) if (d.last_seen_at and d.last_seen_at.tzinfo is None) else d.last_seen_at
+                if curr_seen is None or rep_dt > curr_seen or d.last_lat is None:
+                    d.last_lat = latest_rep.latitude
+                    d.last_lon = latest_rep.longitude
+                    d.last_seen_at = datetime.fromtimestamp(latest_rep.timestamp_published / 1000)
+                    d.last_battery = latest_rep.battery_status
+                    has_updates = True
         if d.last_seen_at and d.last_seen_at.tzinfo is None:
             d.last_seen_at = d.last_seen_at.replace(tzinfo=timezone.utc)
+            
+    if has_updates:
+        await db.commit()
+
     return [DeviceResponse.model_validate(d) for d in devices]
 
 

@@ -148,8 +148,8 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
       final latDiff = (lastCluster.latitude - entry.latitude).abs();
       final lonDiff = (lastCluster.longitude - entry.longitude).abs();
 
-      // Group nearby locations within ~50m (0.0005 degrees)
-      if (latDiff <= 0.0005 && lonDiff <= 0.0005) {
+      // Group nearby locations within ~100m (0.001 degrees)
+      if (latDiff <= 0.001 && lonDiff <= 0.001) {
         lastCluster.endTime = entry.timestamp;
         lastCluster.rawEntries.add(entry);
         if (entry.batteryStatus != null) {

@@ -49,10 +49,15 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
     try {
       const storage = FlutterSecureStorage();
       String? pkBase64 = await storage.read(key: widget.accessory.hashedPublicKey);
-      if (pkBase64 != null) {
+      if (pkBase64 == null || pkBase64.isEmpty) {
+        try {
+          pkBase64 = await widget.accessory.getPrivateKey();
+        } catch (_) {}
+      }
+      if (pkBase64 != null && pkBase64.isNotEmpty) {
         if (mounted) {
           setState(() {
-            _macAddress = FindMyController.calculateMacAddress(pkBase64);
+            _macAddress = FindMyController.calculateMacAddress(pkBase64!);
           });
         }
       } else {

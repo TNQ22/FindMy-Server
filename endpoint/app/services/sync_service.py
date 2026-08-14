@@ -78,10 +78,14 @@ async def run_sync_task() -> dict:
             return {"new_reports": 0, "decrypted": 0, "updated_devices": []}
 
         key_map: dict[str, str | None] = {}
-        device_map: dict[str, Device] = {}
+        devices_by_key: dict[str, list[Device]] = {}
         for dev in devices:
-            key_map[dev.hashed_adv_key] = extract_private_key_from_device_json(dev.private_key_b64)
-            device_map[dev.hashed_adv_key] = dev
+            pk = extract_private_key_from_device_json(dev.private_key_b64)
+            if pk or dev.hashed_adv_key not in key_map:
+                key_map[dev.hashed_adv_key] = pk
+            if dev.hashed_adv_key not in devices_by_key:
+                devices_by_key[dev.hashed_adv_key] = []
+            devices_by_key[dev.hashed_adv_key].append(dev)
 
         # ── 3. Fetch reports from Apple for each device ───────────────────────
         active_accounts = []
@@ -147,8 +151,8 @@ async def run_sync_task() -> dict:
                 if private_key_b64:
                     dec_result = decrypt_report(p_b64, private_key_b64)
 
-                dev_obj = device_map.get(r_key)
-                user_id_val = dev_obj.user_id if dev_obj else account_rec.user_id
+                matched_devices = devices_by_key.get(r_key, [])
+                user_id_val = matched_devices[0].user_id if matched_devices else account_rec.user_id
 
                 new_rep = LocationReport(
                     user_id           = user_id_val,
@@ -167,9 +171,10 @@ async def run_sync_task() -> dict:
                     new_rep.decrypted_at   = datetime.now(timezone.utc)
                     total_decrypted += 1
 
-                    # Update device last-known location if newer
+                    # Update all matching devices (including shared devices) last-known location if newer
                     rep_ts = dec_result["timestamp"]
-                    if dev_obj:
+                    new_battery = dec_result["battery_status"]
+                    for dev_obj in matched_devices:
                         if (
                             dev_obj.last_seen_at is None
                             or rep_ts.replace(tzinfo=timezone.utc)
@@ -178,8 +183,6 @@ async def run_sync_task() -> dict:
                             dev_obj.last_lat     = dec_result["latitude"]
                             dev_obj.last_lon     = dec_result["longitude"]
                             dev_obj.last_seen_at = rep_ts.replace(tzinfo=None)
-                            
-                            new_battery = dec_result["battery_status"]
                             dev_obj.last_battery = new_battery
                             
                             # Handle low battery alerts

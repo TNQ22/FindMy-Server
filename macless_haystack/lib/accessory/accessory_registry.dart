@@ -211,24 +211,24 @@ class AccessoryRegistry extends ChangeNotifier {
           String canonicalKey = item['hashed_adv_key']?.toString() ?? '';
 
           Accessory? acc;
+          String? rawPrivateKey;
 
-          if (jsonStr != null && jsonStr.startsWith('{')) {
-            try {
-              Map<String, dynamic> accJson = jsonDecode(jsonStr);
-              if (canonicalKey.isNotEmpty) {
-                accJson['hashedPublicKey'] = canonicalKey;
-              }
-              acc = Accessory.fromJson(accJson);
-
-              // Save private key to secure storage (for tag import support)
-              if (accJson['privateKey'] != null &&
-                  acc.hashedPublicKey.isNotEmpty) {
-                await FindMyController.savePrivateKeyToStorage(
-                  acc.hashedPublicKey,
-                  accJson['privateKey'].toString(),
-                );
-              }
-            } catch (_) {}
+          if (jsonStr != null && jsonStr.isNotEmpty) {
+            if (jsonStr.startsWith('{')) {
+              try {
+                Map<String, dynamic> accJson = jsonDecode(jsonStr);
+                if (canonicalKey.isNotEmpty) {
+                  accJson['hashedPublicKey'] = canonicalKey;
+                }
+                acc = Accessory.fromJson(accJson);
+                if (accJson['privateKey'] != null &&
+                    accJson['privateKey'].toString().isNotEmpty) {
+                  rawPrivateKey = accJson['privateKey'].toString();
+                }
+              } catch (_) {}
+            } else {
+              rawPrivateKey = jsonStr.trim();
+            }
           }
 
           // Fall back to minimal Accessory if JSON blob was missing/malformed
@@ -245,6 +245,18 @@ class AccessoryRegistry extends ChangeNotifier {
             );
           }
           if (acc == null) continue;
+
+          // Save private key to secure storage (for tag import, MAC calculation & export support)
+          if (rawPrivateKey != null &&
+              rawPrivateKey.isNotEmpty &&
+              acc.hashedPublicKey.isNotEmpty) {
+            try {
+              await FindMyController.savePrivateKeyToStorage(
+                acc.hashedPublicKey,
+                rawPrivateKey,
+              );
+            } catch (_) {}
+          }
 
           // Override name from DB (authoritative)
           if (item['name'] != null && item['name'].toString().isNotEmpty) {
