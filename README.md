@@ -18,7 +18,7 @@ Hệ thống máy chủ mạng lưới **Apple FindMy** tự triển khai (Self-
   - Đồng bộ 24/7 danh sách thiết bị, Thẻ định vị (Tag) và cài đặt cá nhân trên mọi trình duyệt và thiết bị di động.
 
 - ⚡ **Tự Động Nạp Vị Trí Ngầm 24/7**:
-  - Tự động gom bản tin vị trí mới từ Apple FindMy Network mỗi 15 phút một lần (có thể tùy chỉnh qua biến `SYNC_INTERVAL_MINUTES`).
+  - Tự động gom bản tin vị trí mới từ Apple FindMy Network mỗi 60 phút một lần (có thể tùy chỉnh qua biến `SYNC_INTERVAL_MINUTES`).
   - Không cần giữ trình duyệt mở—vị trí của các Tag luôn được máy chủ tự động cập nhật liên tục vào CSDL.
 
 - 🗺️ **Bản Đồ Hiện Đại & Giao Diện Mượt Mà**:
