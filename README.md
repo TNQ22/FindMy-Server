@@ -56,6 +56,7 @@ Tạo file `.env` trong thư mục dự án với nội dung mẫu:
 
 ```env
 # Google OAuth (Bắt buộc để đăng nhập)
+# https://developers.google.com/identity/protocols/oauth2/web-server?hl=vi
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 
 # Chu kỳ tự động lấy vị trí (phút), không nên để thấp hơn 15 phút để tránh bị block
