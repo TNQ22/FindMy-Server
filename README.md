@@ -107,9 +107,6 @@ SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 SMTP_FROM=FindMy Server <your-email@gmail.com>
-
-# Thay đổi thành mã ngẫu nhiên
-JWT_SECRET:hrn23jbvad5k8iHkjatijjjaf788923kjkjkjtkopukhw7wfgnynnyoww6rnrc4jybw6avxmzvcdrqipjt7qwh
 ```
 
 ---
