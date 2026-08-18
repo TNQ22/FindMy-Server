@@ -220,7 +220,7 @@ class _GoogleAuthDialogState extends State<GoogleAuthDialog> {
     return AlertDialog(
       title: const Row(
         children: [
-          Icon(Icons.account_circle, color: Colors.indigo),
+          Icon(Icons.account_circle, color: Color(0xFF4EA302)),
           SizedBox(width: 8),
           Text('Tài khoản & Google Auth'),
         ],
@@ -230,18 +230,18 @@ class _GoogleAuthDialogState extends State<GoogleAuthDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_loading) const LinearProgressIndicator(),
+            if (_loading) const LinearProgressIndicator(color: Colors.teal),
             if (_statusMessage != null) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.withOpacity(0.1),
+                  color: Colors.teal.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   _statusMessage!,
-                  style: const TextStyle(color: Colors.indigo, fontSize: 13),
+                  style: const TextStyle(color: Colors.teal, fontSize: 13),
                 ),
               ),
             ],
@@ -250,14 +250,14 @@ class _GoogleAuthDialogState extends State<GoogleAuthDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.withOpacity(0.1),
-                  border: Border.all(color: Colors.indigo),
+                  color: Colors.teal.withOpacity(0.12),
+                  border: Border.all(color: Colors.teal),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: Colors.indigo,
+                      backgroundColor: Colors.teal,
                       child: Text(
                         (_userProfile!['name'] ?? _userProfile!['email'] ?? 'U')[0].toUpperCase(),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),

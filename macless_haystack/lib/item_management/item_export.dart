@@ -204,6 +204,7 @@ class ItemExportMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
+      tooltip: 'Xuất file / Keys (JSON)',
       onPressed: () {
         showKeyExportSheet(context, accessory);
       },

@@ -96,6 +96,82 @@ def run_direct_sqlite_migration():
                     print(f"Direct Migration: Adding {col} column to location_reports...")
                     cursor.execute(f"ALTER TABLE location_reports ADD COLUMN {col} {col_type};")
 
+        # ── zones, zone_devices, zone_alerts tables ───────────────────────────
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS zones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                radius REAL DEFAULT 100.0,
+                alert_on_exit BOOLEAN DEFAULT 1,
+                alert_on_enter BOOLEAN DEFAULT 0,
+                cooldown_minutes INTEGER DEFAULT 15,
+                is_active BOOLEAN DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zones_id ON zones (id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zones_user_id ON zones (user_id);")
+
+        cursor.execute("PRAGMA table_info(zones);")
+        zone_cols = [row[1] for row in cursor.fetchall()]
+        if zone_cols:
+            if "shape_type" not in zone_cols:
+                print("Direct Migration: Adding shape_type column to zones...")
+                cursor.execute("ALTER TABLE zones ADD COLUMN shape_type VARCHAR(20) DEFAULT 'circle';")
+            if "polygon_points" not in zone_cols:
+                print("Direct Migration: Adding polygon_points column to zones...")
+                cursor.execute("ALTER TABLE zones ADD COLUMN polygon_points TEXT;")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS zone_devices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                zone_id INTEGER NOT NULL,
+                device_id INTEGER NOT NULL,
+                last_status VARCHAR(20) DEFAULT 'UNKNOWN',
+                last_alert_time DATETIME,
+                last_alert_type VARCHAR(20),
+                last_distance REAL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(zone_id) REFERENCES zones(id) ON DELETE CASCADE,
+                FOREIGN KEY(device_id) REFERENCES devices(id) ON DELETE CASCADE
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_devices_id ON zone_devices (id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_devices_zone_id ON zone_devices (zone_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_devices_device_id ON zone_devices (device_id);")
+
+        cursor.execute("PRAGMA table_info(zone_devices);")
+        zd_cols = [row[1] for row in cursor.fetchall()]
+        if zd_cols and "last_alert_type" not in zd_cols:
+            cursor.execute("ALTER TABLE zone_devices ADD COLUMN last_alert_type VARCHAR(20);")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS zone_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                zone_id INTEGER NOT NULL,
+                device_id INTEGER NOT NULL,
+                alert_type VARCHAR(20) NOT NULL,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                distance REAL NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(zone_id) REFERENCES zones(id) ON DELETE CASCADE,
+                FOREIGN KEY(device_id) REFERENCES devices(id) ON DELETE CASCADE
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_id ON zone_alerts (id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_user_id ON zone_alerts (user_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_zone_id ON zone_alerts (zone_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_device_id ON zone_alerts (device_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_created_at ON zone_alerts (created_at);")
+
         conn.commit()
         conn.close()
     except Exception as e:

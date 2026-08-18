@@ -18,6 +18,8 @@ class User(Base):
     icloud_accounts: Mapped[list["ICloudAccount"]] = relationship("ICloudAccount", back_populates="user", cascade="all, delete-orphan")
     devices: Mapped[list["Device"]] = relationship("Device", back_populates="user", cascade="all, delete-orphan")
     reports: Mapped[list["LocationReport"]] = relationship("LocationReport", back_populates="user", cascade="all, delete-orphan")
+    zones: Mapped[list["Zone"]] = relationship("Zone", back_populates="user", cascade="all, delete-orphan")
+    zone_alerts: Mapped[list["ZoneAlert"]] = relationship("ZoneAlert", back_populates="user", cascade="all, delete-orphan")
 
 class ICloudAccount(Base):
     __tablename__ = "icloud_accounts"
@@ -53,6 +55,8 @@ class Device(Base):
     last_alerted_battery: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="devices")
+    zone_links: Mapped[list["ZoneDevice"]] = relationship("ZoneDevice", back_populates="device", cascade="all, delete-orphan")
+    zone_alerts: Mapped[list["ZoneAlert"]] = relationship("ZoneAlert", back_populates="device", cascade="all, delete-orphan")
 
 class LocationReport(Base):
     __tablename__ = "location_reports"
@@ -77,3 +81,61 @@ class LocationReport(Base):
 __table_args__ = (
     Index("idx_key_timestamp", LocationReport.hashed_adv_key, LocationReport.timestamp_published),
 )
+
+
+class Zone(Base):
+    __tablename__ = "zones"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    radius: Mapped[float] = mapped_column(Float, default=100.0)  # Radius in meters for circle
+    shape_type: Mapped[str] = mapped_column(String(20), default="circle", nullable=False)  # "circle" or "polygon"
+    polygon_points: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list of coordinates
+    alert_on_exit: Mapped[bool] = mapped_column(Boolean, default=True)
+    alert_on_enter: Mapped[bool] = mapped_column(Boolean, default=False)
+    cooldown_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    user: Mapped["User"] = relationship("User", back_populates="zones")
+    zone_devices: Mapped[list["ZoneDevice"]] = relationship("ZoneDevice", back_populates="zone", cascade="all, delete-orphan")
+    alerts: Mapped[list["ZoneAlert"]] = relationship("ZoneAlert", back_populates="zone", cascade="all, delete-orphan")
+
+
+class ZoneDevice(Base):
+    __tablename__ = "zone_devices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    zone_id: Mapped[int] = mapped_column(Integer, ForeignKey("zones.id", ondelete="CASCADE"), index=True, nullable=False)
+    device_id: Mapped[int] = mapped_column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), index=True, nullable=False)
+    last_status: Mapped[str] = mapped_column(String(20), default="UNKNOWN")  # INSIDE, OUTSIDE, UNKNOWN
+    last_alert_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_alert_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # EXIT, ENTER
+    last_distance: Mapped[float | None] = mapped_column(Float, nullable=True)  # in meters
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    zone: Mapped["Zone"] = relationship("Zone", back_populates="zone_devices")
+    device: Mapped["Device"] = relationship("Device", back_populates="zone_links")
+
+
+class ZoneAlert(Base):
+    __tablename__ = "zone_alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    zone_id: Mapped[int] = mapped_column(Integer, ForeignKey("zones.id", ondelete="CASCADE"), index=True, nullable=False)
+    device_id: Mapped[int] = mapped_column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), index=True, nullable=False)
+    alert_type: Mapped[str] = mapped_column(String(20), nullable=False)  # EXIT, ENTER
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    distance: Mapped[float] = mapped_column(Float, nullable=False)  # distance in meters
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="zone_alerts")
+    zone: Mapped["Zone"] = relationship("Zone", back_populates="alerts")
+    device: Mapped["Device"] = relationship("Device", back_populates="zone_alerts")
+

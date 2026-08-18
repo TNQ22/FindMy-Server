@@ -131,9 +131,111 @@ class LocationHistoryResponse(BaseModel):
     items: list[LocationHistoryItem]
     total: int
 
+# ── Sharing ───────────────────────────────────────────────────────────────────
+
+class ShareDeviceRequest(BaseModel):
+    device_id: Optional[int] = None
+    hashed_adv_key: Optional[str] = None
+    target_user_id: Optional[int] = None
+    target_email: Optional[str] = None
+
+class SharedUserInfo(BaseModel):
+    device_id: int
+    user_id: int
+    email: str
+    name: str
+    picture: Optional[str] = None
+
 # ── Sync ──────────────────────────────────────────────────────────────────────
 
 class SyncNowResponse(BaseModel):
     new_reports: int = 0
     decrypted: int = 0
     updated_devices: list[str] = []
+
+# ── Zones & Geofencing ────────────────────────────────────────────────────────
+
+class ZoneDeviceItemResponse(BaseModel):
+    device_id: int
+    device_name: str
+    hashed_adv_key: str
+    last_status: str = "UNKNOWN"
+    last_distance: Optional[float] = None
+    last_alert_time: Optional[datetime] = None
+    last_alert_type: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class PolygonPoint(BaseModel):
+    lat: float
+    lon: float
+
+class ZoneCreateRequest(BaseModel):
+    name: str
+    latitude: float
+    longitude: float
+    radius: float = 100.0
+    shape_type: str = "circle"
+    polygon_points: Optional[list[PolygonPoint]] = None
+    alert_on_exit: bool = True
+    alert_on_enter: bool = False
+    cooldown_minutes: int = 15
+    is_active: bool = True
+    device_ids: list[int] = []
+    hashed_adv_keys: list[str] = []
+
+class ZoneUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    radius: Optional[float] = None
+    shape_type: Optional[str] = None
+    polygon_points: Optional[list[PolygonPoint]] = None
+    alert_on_exit: Optional[bool] = None
+    alert_on_enter: Optional[bool] = None
+    cooldown_minutes: Optional[int] = None
+    is_active: Optional[bool] = None
+    device_ids: Optional[list[int]] = None
+    hashed_adv_keys: Optional[list[str]] = None
+
+class ZoneResponse(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    latitude: float
+    longitude: float
+    radius: float
+    shape_type: str = "circle"
+    polygon_points: Optional[list[PolygonPoint]] = None
+    alert_on_exit: bool
+    alert_on_enter: bool
+    cooldown_minutes: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    devices: list[ZoneDeviceItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class ZoneAlertItemResponse(BaseModel):
+    id: int
+    zone_id: int
+    zone_name: str
+    device_id: int
+    device_name: str
+    alert_type: str
+    latitude: float
+    longitude: float
+    distance: float
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ZoneAlertListResponse(BaseModel):
+    items: list[ZoneAlertItemResponse]
+    total: int
+
+

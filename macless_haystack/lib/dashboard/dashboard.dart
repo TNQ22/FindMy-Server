@@ -196,7 +196,13 @@ class _DashboardState extends State<Dashboard> {
             UserAvatarMenu(),
           ],
         ),
-        body: _tabs[_selectedIndex]['body'](context),
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            _tabs[0]['body'](context),
+            _tabs[1]['body'](context),
+          ],
+        ),
         bottomNavigationBar: BottomNavigationBar(
           items: _tabs
               .map((tab) => BottomNavigationBarItem(
@@ -205,7 +211,10 @@ class _DashboardState extends State<Dashboard> {
                   ))
               .toList(),
           currentIndex: _selectedIndex,
-          unselectedItemColor: Theme.of(context).secondaryHeaderColor,
+          selectedItemColor: Colors.teal,
+          unselectedItemColor: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey.shade500
+              : Colors.grey.shade600,
           onTap: _onItemTapped,
         ),
         floatingActionButton:

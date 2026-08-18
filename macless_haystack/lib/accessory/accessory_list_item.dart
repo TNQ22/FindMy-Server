@@ -61,10 +61,10 @@ class AccessoryListItemState extends State<AccessoryListItem> {
             locationString = '${place.locality}, ${place.country}';
           }
         }
-        // Format published date in a human readable way
+        // Format published date in 24-hour format (e.g. 14:30 - 19/08/2026)
         String? dateString = widget.accessory.datePublished != null &&
                 widget.accessory.datePublished != DateTime(1970)
-            ? '\n${DateFormat.yMMMd(Platform.localeName).format(widget.accessory.datePublished!)} ${DateFormat.jm(Platform.localeName).format(widget.accessory.datePublished!)}'
+            ? '\n${DateFormat('HH:mm - dd/MM/yyyy').format(widget.accessory.datePublished!)}'
             : '';
 
         return AnimatedContainer(

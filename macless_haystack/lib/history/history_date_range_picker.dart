@@ -56,6 +56,8 @@ class _HistoryDateRangePickerState extends State<HistoryDateRangePicker> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                _presetChip('1 giờ', 6),
+                const SizedBox(width: 6),
                 _presetChip('Hôm nay', 0),
                 const SizedBox(width: 6),
                 _presetChip('2 ngày', 5),
@@ -156,6 +158,9 @@ class _HistoryDateRangePickerState extends State<HistoryDateRangePicker> {
   void _emitPreset(int preset) {
     final now = DateTime.now();
     switch (preset) {
+      case 6: // 1 hour
+        widget.onRangeChanged(now.subtract(const Duration(hours: 1)), now);
+        break;
       case 0: // Today
         widget.onRangeChanged(
             DateTime(now.year, now.month, now.day), now);
@@ -177,6 +182,8 @@ class _HistoryDateRangePickerState extends State<HistoryDateRangePicker> {
 
   String _rangeLabel() {
     switch (_selectedPreset) {
+      case 6:
+        return '1 giờ gần nhất';
       case 0:
         return 'Hôm nay';
       case 5:

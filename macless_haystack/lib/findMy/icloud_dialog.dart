@@ -278,7 +278,7 @@ class _ICloudManagementDialogState extends State<ICloudManagementDialog> {
     return AlertDialog(
       title: const Row(
         children: [
-          Icon(Icons.cloud_sync, color: Colors.blue),
+          Icon(Icons.cloud_sync, color: Colors.teal),
           SizedBox(width: 8),
           Text('Shared iCloud'),
         ],
@@ -296,12 +296,12 @@ class _ICloudManagementDialogState extends State<ICloudManagementDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.teal.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     _statusMessage!,
-                    style: const TextStyle(color: Colors.blue, fontSize: 13),
+                    style: const TextStyle(color: Colors.teal, fontSize: 13),
                   ),
                 ),
               ],
@@ -350,7 +350,7 @@ class _ICloudManagementDialogState extends State<ICloudManagementDialog> {
                             : null,
                         leading: Icon(
                           isReq2FA ? Icons.warning_amber_rounded : Icons.account_circle,
-                          color: isReq2FA ? Colors.amber.shade800 : (isOwner ? Colors.green : Colors.blue),
+                          color: isReq2FA ? Colors.amber.shade800 : (isOwner ? Colors.teal : Colors.teal.shade700),
                         ),
                         title: Text(
                           displayEmail,
@@ -380,10 +380,10 @@ class _ICloudManagementDialogState extends State<ICloudManagementDialog> {
                             : Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
+                                  color: Colors.teal.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text('Shared Pool', style: TextStyle(fontSize: 10, color: Colors.blue)),
+                                child: const Text('Shared Pool', style: TextStyle(fontSize: 10, color: Colors.teal)),
                               ),
                       ),
                     );

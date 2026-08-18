@@ -11,6 +11,8 @@ import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/location/location_model.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/admin/admin_page.dart';
+import 'package:macless_haystack/preferences/notification_settings_dialog.dart';
+import 'package:macless_haystack/zones/zone_management_dialog.dart';
 
 class UserAvatarMenu extends StatefulWidget {
   const UserAvatarMenu({super.key});
@@ -23,6 +25,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
   String? _userName;
   String? _userEmail;
   String? _userPicture;
+  String _appVersion = '1.1.1';
   bool _isAdmin = false;
   bool _loading = true;
 
@@ -30,6 +33,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
   void initState() {
     super.initState();
     _fetchUserInfo();
+    _fetchAppVersion();
   }
 
   String get _baseUrl {
@@ -42,6 +46,22 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
       configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
     }
     return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
+  }
+
+  Future<void> _fetchAppVersion() async {
+    try {
+      final res = await http.get(Uri.parse('$_baseUrl/api/version'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['version'] != null && data['version'].toString().trim().isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _appVersion = data['version'].toString().trim();
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _saveSettingsToServer(Map<String, dynamic> settingsMap) async {
@@ -141,7 +161,6 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
           child: StatefulBuilder(
             builder: (dialogContext, setDialogState) {
               bool showLocation = Settings.getValue<bool>(locationAccessWantedKey, defaultValue: true)!;
-              bool emailAlertsEnabled = Settings.getValue<bool>(emailAlertsEnabledKey, defaultValue: true)!;
 
               return AlertDialog(
                 alignment: Alignment.topRight,
@@ -225,10 +244,10 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                           leading: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              color: Colors.teal.withOpacity(0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.cloud_outlined, color: Colors.blue, size: 20),
+                            child: const Icon(Icons.cloud_outlined, color: Colors.teal, size: 20),
                           ),
                           title: const Text('Shared iCloud', style: TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: const Text('Quản lý danh sách tài khoản iCloud', style: TextStyle(fontSize: 11)),
@@ -241,6 +260,61 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             );
                           },
                         ),
+
+                        const SizedBox(height: 8),
+
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.withOpacity(0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.notifications_active_outlined, color: Colors.teal, size: 20),
+                          ),
+                          title: const Text('Thông Báo & Webhook', style: TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: const Text('Telegram, Discord, Webhook, Email', style: TextStyle(fontSize: 11)),
+                          trailing: const Icon(Icons.chevron_right, size: 18),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            final updated = await showDialog<bool>(
+                              context: context,
+                              builder: (c) => NotificationSettingsDialog(userEmail: _userEmail),
+                            );
+                            if (updated == true && mounted) {
+                              _fetchUserInfo();
+                            }
+                          },
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.shield_outlined, color: Colors.teal, size: 20),
+                          ),
+                          title: const Text('Khu Vực Cảnh Báo (Safe Zone)', style: TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: const Text('Hàng rào địa lý & cảnh báo ra vào vùng', style: TextStyle(fontSize: 11)),
+                          trailing: const Icon(Icons.chevron_right, size: 18),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            showDialog(
+                              context: context,
+                              builder: (c) => const ZoneManagementDialog(),
+                            );
+                          },
+                        ),
+
+
 
                         const SizedBox(height: 8),
 
@@ -313,65 +387,6 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                           },
                         ),
 
-
-                        // Setting 2: Email Alerts
-                        SwitchListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          secondary: const Icon(Icons.email, size: 20, color: Colors.blue),
-                          title: const Text('Nhận cảnh báo qua Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                          subtitle: const Text('Gửi email khi pin Thấp / Rất thấp', style: TextStyle(fontSize: 11)),
-                          value: emailAlertsEnabled,
-                          onChanged: (val) async {
-                            await Settings.setValue<bool>(emailAlertsEnabledKey, val);
-                            setDialogState(() {
-                              emailAlertsEnabled = val;
-                            });
-                            _saveSettingsToServer({
-                              'number_of_days': Settings.getValue<int>(numberOfDaysToFetch, defaultValue: 30),
-                              'location_access_wanted': Settings.getValue<bool>(locationAccessWantedKey, defaultValue: true),
-                              'email_alerts_enabled': val,
-                            });
-                          },
-                        ),
-                        
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.withOpacity(0.1),
-                              foregroundColor: Colors.blue,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.send, size: 16),
-                            label: const Text('Gửi Email Test', style: TextStyle(fontSize: 12)),
-                            onPressed: () async {
-                              // Send test email
-                              final token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
-                              try {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đang gửi...')));
-                                final res = await http.post(
-                                  Uri.parse('$_baseUrl/api/auth/test-email'),
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': token.trim().startsWith('Bearer ') ? token.trim() : 'Bearer ${token.trim()}',
-                                  },
-                                );
-                                if (res.statusCode == 200 && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã gửi Email Test thành công! Vui lòng kiểm tra hộp thư.')));
-                                } else if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi gửi email! Kiểm tra log backend.')));
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối máy chủ!')));
-                                }
-                              }
-                            },
-                          ),
-                        ),
-
                         const SizedBox(height: 12),
                         const Divider(height: 1),
                         const SizedBox(height: 16),
@@ -393,6 +408,29 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                               Navigator.pop(ctx);
                               await Provider.of<AuthState>(context, listen: false).logout();
                             },
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: () {
+                            try {
+                              html.window.open('https://github.com/tnq22/FindMy-Server', '_blank');
+                            } catch (_) {}
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.code, size: 13, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'FindMy Server v$_appVersion • GitHub',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -425,7 +463,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: [Colors.blue.shade400, Colors.purple.shade400],
+                      colors: [Colors.teal.shade300, Colors.teal.shade700],
                     ),
                   ),
                   child: CircleAvatar(

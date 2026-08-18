@@ -9,7 +9,6 @@
 *.md
 *.txt
 images/
-version
 LICENSE
 
 # Environments & Local Data

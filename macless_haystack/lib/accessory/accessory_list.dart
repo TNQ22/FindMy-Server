@@ -145,7 +145,7 @@ class _AccessoryListState extends State<AccessoryList> {
                             accessoryRegistry.editAccessory(
                                 accessory, newAccessory);
                           },
-                          backgroundColor: Colors.green,
+                          backgroundColor: Colors.teal.shade700,
                           foregroundColor: Colors.white,
                           icon: Icons.toggle_on_outlined,
                           label: 'Activate',

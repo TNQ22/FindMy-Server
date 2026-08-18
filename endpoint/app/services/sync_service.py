@@ -9,7 +9,11 @@ from app.database import AsyncSessionLocal
 from app.models import User, ICloudAccount, Device, LocationReport
 from app.services.icloud_service import restore_apple_account, fetch_reports_from_icloud, serialize_apple_account
 from app.services.decrypt_service import decrypt_report, extract_private_key_from_device_json
-from app.services.email_service import send_low_battery_alert, send_icloud_status_alert
+from app.services.notification_service import (
+    dispatch_low_battery_notification,
+    dispatch_icloud_status_notification,
+)
+from app.services.geofence_service import evaluate_device_geofence
 
 logger = logging.getLogger("sync_service")
 
@@ -18,30 +22,19 @@ scheduler = AsyncIOScheduler()
 
 async def handle_icloud_failure(db, account_rec, reason: str):
     """
-    Mark iCloud account as alerted and send email to the owner if enabled.
+    Mark iCloud account as alerted and send multi-channel notification to the owner if configured.
     """
     if not account_rec.is_alerted:
         account_rec.is_alerted = True
         account_rec.last_error = reason
         await db.commit()
 
-        if account_rec.user and account_rec.user.email:
-            import json
+        if account_rec.user:
             import asyncio
-            user_settings = {}
-            try:
-                user_settings = json.loads(account_rec.user.settings_json or "{}")
-            except Exception:
-                pass
-
-            email_enabled = user_settings.get("email_alerts_enabled", True)
-            if email_enabled:
-                logger.warning(f"Sending iCloud failure alert email to {account_rec.user.email} for Apple ID {account_rec.apple_id}")
-                asyncio.create_task(
-                    send_icloud_status_alert(account_rec.user.email, account_rec.apple_id, reason)
-                )
-            else:
-                logger.info(f"Skipping iCloud alert email for {account_rec.apple_id} (user disabled email alerts).")
+            logger.warning(f"Dispatching iCloud failure alert for Apple ID {account_rec.apple_id} (User: {account_rec.user.email})")
+            asyncio.create_task(
+                dispatch_icloud_status_notification(account_rec.user, account_rec.apple_id, reason)
+            )
 
 
 async def run_sync_task() -> dict:
@@ -189,28 +182,26 @@ async def run_sync_task() -> dict:
                             if new_battery in ["low", "criticalLow"]:
                                 if dev_obj.last_alerted_battery != new_battery:
                                     dev_obj.last_alerted_battery = new_battery
-                                    if dev_obj.user and dev_obj.user.email:
-                                        import json
-                                        user_settings = {}
-                                        try:
-                                            user_settings = json.loads(dev_obj.user.settings_json or "{}")
-                                        except Exception:
-                                            pass
-                                        
-                                        email_enabled = user_settings.get("email_alerts_enabled", True)
-                                        if email_enabled:
-                                            import asyncio
-                                            asyncio.create_task(
-                                                send_low_battery_alert(dev_obj.user.email, dev_obj.name, new_battery)
-                                            )
-                                        else:
-                                            logger.info(f"Skipping email alert for {dev_obj.name} (user disabled it).")
+                                    if dev_obj.user:
+                                        import asyncio
+                                        asyncio.create_task(
+                                            dispatch_low_battery_notification(dev_obj.user, dev_obj.name, new_battery)
+                                        )
                             elif new_battery in ["ok", "medium"]:
                                 # Reset alert state if battery is replaced or recovered
                                 dev_obj.last_alerted_battery = None
                                 
                             if dev_obj.name not in updated_device_names:
                                 updated_device_names.append(dev_obj.name)
+
+                            # Evaluate geofence rules (Safe Zone Exit / Enter)
+                            await evaluate_device_geofence(
+                                db,
+                                dev_obj,
+                                dec_result["latitude"],
+                                dec_result["longitude"],
+                                rep_ts,
+                            )
 
                 db.add(new_rep)
                 total_new += 1

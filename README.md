@@ -24,20 +24,20 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
 - 👥 **Hồ Chứa iCloud Dùng Chung (Shared iCloud Pool)**:
   - Thêm nhiều tài khoản Apple ID để tự động xoay vòng truy vấn vị trí, tránh bị giới hạn tần suất từ Apple.
   - Hỗ trợ xác thực 2FA trực tiếp (Thiết bị tin cậy hoặc SMS).
-- 📧 **Cảnh Báo Qua Email (SMTP)**:
-  - **Cảnh báo tài khoản iCloud**: Tự động gửi email khi tài khoản Apple ID bị hết hạn phiên đăng nhập, yêu cầu xác thực lại (2FA), hoặc gặp sự cố kết nối với Apple.
-  - **Cảnh báo pin yếu**: Tự động gửi email thông báo cho người dùng khi thẻ định vị bị yếu pin hoặc sắp cạn pin.
+- 🔔 **Thông Báo & Cảnh Báo Đa Kênh (Telegram, Discord, Webhook, Email)**:
+  - **Cảnh báo tài khoản iCloud**: Tự động thông báo khi tài khoản Apple ID bị hết hạn phiên đăng nhập, yêu cầu xác thực lại (2FA), hoặc mất kết nối với Apple.
+  - **Cảnh báo pin yếu**: Tự động gửi cảnh báo tức thì khi thẻ định vị bị yếu pin hoặc sắp cạn pin qua **Discord Webhook**, **Email (SMTP)**, **Telegram Bot**, hoặc **Custom Webhook (Zalo / n8n / Home Assistant)**.
 
     Hệ thống tự động giải mã trạng thái pin từ các bản tin của mạng Apple Find My và phân loại thành **4 mức**:
 
-    | Mức mã hóa (Bit) | Trạng thái | Tỷ lệ pin ước tính | Cảnh báo Email |
-    | :---: | :--- | :---: | :--- |
-    | `00` | 🟢 **Đầy / Tốt (`ok`)** | ~75% – 100% | Không |
-    | `01` | 🟡 **Trung bình (`medium`)** | ~25% – 75% | Không |
-    | `10` | 🟠 **Yếu (`low`)** | ~10% – 25% | 📧 **Gửi email cảnh báo** |
-    | `11` | 🔴 **Rất yếu / Sắp cạn (`criticalLow`)** | < 10% | 📧 **Gửi email cảnh báo khẩn cấp** |
+    | Mức mã hóa (Bit) | Trạng thái | Tỷ lệ pin ước tính | Mức độ cảnh báo |
+    | :---: | :--- | :--- | :--- |
+    | `00` | 🟢 **Đầy / Tốt (`ok`)** | ~75% – 100% | Bình thường |
+    | `01` | 🟡 **Trung bình (`medium`)** | ~25% – 75% | Bình thường |
+    | `10` | 🟠 **Yếu (`low`)** | ~10% – 25% | ⚠️ **Cảnh báo pin yếu** |
+    | `11` | 🔴 **Rất yếu / Sắp cạn (`criticalLow`)** | < 10% | 🚨 **Cảnh báo khẩn cấp** |
 
-  > 💡 **Cơ chế gửi mail thông minh:** Email chỉ được gửi 1 lần khi trạng thái chuyển sang lỗi hoặc pin yếu (tránh spam). Khi sự cố được khắc phục (đăng nhập lại hoặc thay pin mới), hệ thống sẽ tự động đặt lại cờ cảnh báo.
+  > 💡 **Cơ chế cảnh báo thông minh:** Cảnh báo chỉ được gửi 1 lần khi trạng thái chuyển sang lỗi hoặc pin yếu (tránh spam). Khi sự cố được khắc phục (đăng nhập lại hoặc thay pin mới), hệ thống sẽ tự động đặt lại cờ cảnh báo. Có nút gửi thử nghiệm (Test) trực tiếp cho từng kênh.
 
 - 🔒 **Đăng Nhập Google OAuth & Phân Quyền**: Đăng nhập an toàn bằng tài khoản Google, phân quyền Admin và User riêng biệt.
 - ⚡ **Tự Động Đồng Bộ Vị Trí 24/7**: Máy chủ tự động tải và giải mã vị trí ngầm định kỳ vào cơ sở dữ liệu mà không cần giữ trình duyệt mở.

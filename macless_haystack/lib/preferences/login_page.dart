@@ -158,12 +158,17 @@ class _LoginPageState extends State<LoginPage> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
+                  color: Colors.teal.withOpacity(0.12),
+                  blurRadius: 30,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
                   color: Colors.black.withOpacity(0.4),
                   blurRadius: 24,
                   offset: const Offset(0, 10),
                 ),
               ],
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: Colors.teal.withOpacity(0.35)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -171,12 +176,12 @@ class _LoginPageState extends State<LoginPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.withOpacity(0.2),
+                    color: Colors.teal.withOpacity(0.15),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.location_on_rounded,
-                    color: Colors.indigoAccent,
+                    color: Colors.teal,
                     size: 56,
                   ),
                 ),
@@ -209,11 +214,11 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.orange.withOpacity(0.5)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.access_time_rounded, color: Colors.orange, size: 18),
-                        const SizedBox(width: 8),
-                        const Expanded(
+                        Icon(Icons.access_time_rounded, color: Colors.orange, size: 18),
+                        SizedBox(width: 8),
+                        Expanded(
                           child: Text(
                             'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
                             style: TextStyle(color: Colors.orange, fontSize: 13),
@@ -241,7 +246,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                 ],
                 if (_loading) ...[
-                  const CircularProgressIndicator(color: Colors.indigoAccent),
+                  const CircularProgressIndicator(color: Colors.teal),
                   const SizedBox(height: 16),
                   Text(
                     'Đang xác thực tài khoản...',

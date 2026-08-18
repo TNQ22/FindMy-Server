@@ -4,6 +4,7 @@ import 'package:macless_haystack/accessory/accessory_detail.dart';
 import 'package:macless_haystack/accessory/accessory_icon.dart';
 import 'package:macless_haystack/accessory/no_accessories.dart';
 import 'package:macless_haystack/item_management/item_export.dart';
+import 'package:macless_haystack/item_management/item_share.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:intl/intl.dart';
 
@@ -30,7 +31,7 @@ class KeyManagement extends StatelessWidget {
             children: accessories.map((accessory) {
               String lastSeen = accessory.datePublished != null &&
                       accessory.datePublished != DateTime(1970)
-                  ? DateFormat('dd.MM.yyyy kk:mm')
+                  ? DateFormat('HH:mm - dd/MM/yyyy')
                       .format(accessory.datePublished!)
                   : 'Never';
               return Material(
@@ -59,7 +60,13 @@ class KeyManagement extends StatelessWidget {
                     color: accessory.color,
                   ),
                 ),
-                trailing: ItemExportMenu(accessory: accessory),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ItemShareAction(accessory: accessory),
+                    ItemExportMenu(accessory: accessory),
+                  ],
+                ),
               ));
             }).toList(),
           ),
@@ -68,3 +75,4 @@ class KeyManagement extends StatelessWidget {
     );
   }
 }
+

@@ -134,7 +134,7 @@ class _AdminPageState extends State<AdminPage> {
 
   void _showSuccess(String msg) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.green));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.teal.shade800));
     }
   }
 
@@ -288,7 +288,7 @@ class _AdminPageState extends State<AdminPage> {
                         itemBuilder: (BuildContext context) => [
                           const PopupMenuItem(
                             value: 'add_tag',
-                            child: Row(children: [Icon(Icons.add_link, color: Colors.blue, size: 20), SizedBox(width: 8), Text('Thêm Tag')]),
+                            child: Row(children: [Icon(Icons.add_link, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Thêm Tag')]),
                           ),
                           const PopupMenuItem(
                             value: 'import',
@@ -296,7 +296,7 @@ class _AdminPageState extends State<AdminPage> {
                           ),
                           const PopupMenuItem(
                             value: 'share_tags',
-                            child: Row(children: [Icon(Icons.share, color: Colors.purple, size: 20), SizedBox(width: 8), Text('Quản lý & Share Tag')]),
+                            child: Row(children: [Icon(Icons.share, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Quản lý & Share Tag')]),
                           ),
                           if (!isAdmin)
                             const PopupMenuItem(
@@ -567,8 +567,8 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
                                   ListTile(
                                     contentPadding: EdgeInsets.zero,
                                     leading: CircleAvatar(
-                                      backgroundColor: Colors.blue.shade100,
-                                      child: const Icon(Icons.pin_drop, color: Colors.blue),
+                                      backgroundColor: Colors.teal.shade100,
+                                      child: const Icon(Icons.pin_drop, color: Colors.teal),
                                     ),
                                     title: Text(dev['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
                                     subtitle: Text('ADV Key: ${dev['hashed_adv_key'].toString().substring(0, 15)}...'),
@@ -583,11 +583,11 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
                                     const SizedBox(height: 6),
                                     Row(
                                       children: [
-                                        const Icon(Icons.people_outline, size: 16, color: Colors.purple),
+                                        const Icon(Icons.people_outline, size: 16, color: Colors.teal),
                                         const SizedBox(width: 4),
                                         const Text(
                                           'Đang chia sẻ với:',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple),
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal),
                                         ),
                                       ],
                                     ),
@@ -598,7 +598,7 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
                                       children: sharedWith.map<Widget>((sw) {
                                         return Chip(
                                           avatar: const CircleAvatar(
-                                            backgroundColor: Colors.purple,
+                                            backgroundColor: Colors.teal,
                                             child: Icon(Icons.person, size: 12, color: Colors.white),
                                           ),
                                           label: Text(sw['email'], style: const TextStyle(fontSize: 12)),

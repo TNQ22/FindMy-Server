@@ -42,12 +42,100 @@ async def update_user_settings(
 @router.post("/test-email")
 async def send_test_email(current_user: User = Depends(get_current_user)):
     from app.services.email_service import send_low_battery_alert
-    import asyncio
-    
-    # Fire and forget or await
     try:
         await send_low_battery_alert(current_user.email, "Thiết bị Test", "criticalLow")
         return {"status": "ok", "message": "Email sent successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/test-channel")
+async def test_notification_channel(
+    payload: dict,
+    current_user: User = Depends(get_current_user)
+):
+    from app.services.notification_service import (
+        send_telegram_alert,
+        send_discord_alert,
+        send_custom_webhook_alert,
+        get_user_notification_settings,
+    )
+    from datetime import datetime, timezone
+    
+    channel = payload.get("channel", "").lower()
+    custom_cfg = payload.get("config", {}) or {}
+    user_cfg = get_user_notification_settings(current_user)
+
+    now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+
+    if channel == "telegram":
+        token = custom_cfg.get("telegram_bot_token") or user_cfg.get("telegram_bot_token")
+        chat_id = custom_cfg.get("telegram_chat_id") or user_cfg.get("telegram_chat_id")
+        if not token or not chat_id:
+            raise HTTPException(status_code=400, detail="Vui lòng nhập Bot Token và Chat ID của Telegram.")
+        
+        test_msg = (
+            f"🔔 <b>FindMy Server: Kiểm tra kết nối Telegram</b>\n\n"
+            f"✅ Kênh thông báo Telegram đã được thiết lập thành công!\n"
+            f"👤 <b>Tài khoản:</b> {current_user.email}\n"
+            f"🕒 <b>Thời gian:</b> {now_str}\n\n"
+            f"<i>Kênh thông báo Telegram của bạn đã sẵn sàng nhận các thông báo từ hệ thống.</i>"
+        )
+        ok = await send_telegram_alert(token, str(chat_id), test_msg)
+        if not ok:
+            raise HTTPException(status_code=400, detail="Không thể gửi tin nhắn Telegram. Vui lòng kiểm tra lại Bot Token và Chat ID (đảm bảo bạn đã bấm /start với bot).")
+        return {"status": "ok", "message": "Đã gửi tin nhắn kiểm tra qua Telegram thành công!"}
+
+    elif channel == "discord":
+        webhook_url = custom_cfg.get("discord_webhook_url") or user_cfg.get("discord_webhook_url")
+        if not webhook_url:
+            raise HTTPException(status_code=400, detail="Vui lòng nhập Discord Webhook URL.")
+        
+        fields = [
+            {"name": "Trạng thái", "value": "Kết nối thành công", "inline": True},
+            {"name": "Người dùng", "value": current_user.email, "inline": True}
+        ]
+        ok = await send_discord_alert(
+            webhook_url=webhook_url,
+            title="🔔 FindMy Server: Kiểm tra kết nối Discord",
+            description="Kênh thông báo Discord Webhook đã được cấu hình thành công trên FindMy Server.",
+            color=0x2ecc71,
+            fields=fields
+        )
+        if not ok:
+            raise HTTPException(status_code=400, detail="Không thể gửi tin nhắn đến Discord Webhook. Vui lòng kiểm tra lại Webhook URL.")
+        return {"status": "ok", "message": "Đã gửi tin nhắn kiểm tra qua Discord thành công!"}
+
+    elif channel in ("webhook", "zalo"):
+        webhook_url = custom_cfg.get("webhook_url") or user_cfg.get("webhook_url")
+        if not webhook_url:
+            raise HTTPException(status_code=400, detail="Vui lòng nhập Webhook URL.")
+        
+        test_payload = {
+            "event": "test_notification",
+            "title": "FindMy Server: Kiểm tra kết nối Webhook",
+            "message": "Webhook test message from FindMy Server.",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_email": current_user.email
+        }
+        ok = await send_custom_webhook_alert(webhook_url, test_payload)
+        if not ok:
+            raise HTTPException(status_code=400, detail="Không thể gửi POST request đến Webhook URL. Vui lòng kiểm tra lại URL endpoint.")
+        return {"status": "ok", "message": "Đã gửi payload kiểm tra đến Webhook thành công!"}
+
+    elif channel == "email":
+        from app.services.email_service import send_test_email_alert
+        recipient = custom_cfg.get("recipient_email") or current_user.email
+        if not recipient:
+            raise HTTPException(status_code=400, detail="Không tìm thấy địa chỉ email người nhận.")
+        try:
+            await send_test_email_alert(recipient)
+            return {"status": "ok", "message": f"Đã gửi email kiểm tra thành công tới {recipient}! Vui lòng kiểm tra hộp thư (bao gồm cả mục Spam/Junk)."}
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi gửi email SMTP: {str(e)}")
+
+    else:
+        raise HTTPException(status_code=400, detail=f"Kênh thông báo không hợp lệ: {channel}")
+
 

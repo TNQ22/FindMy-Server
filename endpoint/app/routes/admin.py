@@ -158,7 +158,8 @@ async def add_device_for_user(
     if latest_rep:
         dev.last_lat = latest_rep.latitude
         dev.last_lon = latest_rep.longitude
-        dev.last_seen_at = datetime.fromtimestamp(latest_rep.timestamp_published / 1000)
+        from datetime import timezone
+        dev.last_seen_at = datetime.fromtimestamp(latest_rep.timestamp_published / 1000, tz=timezone.utc).replace(tzinfo=None)
         dev.last_battery = latest_rep.battery_status
 
     await db.commit()

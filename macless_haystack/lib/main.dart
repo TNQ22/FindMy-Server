@@ -13,6 +13,7 @@ import 'package:macless_haystack/splashscreen.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'package:macless_haystack/zones/zone_registry.dart';
 import 'package:macless_haystack/preferences/login_page.dart';
 
 void main() {
@@ -34,13 +35,53 @@ class MyApp extends StatelessWidget {
           final registry = AccessoryRegistry();
           return registry;
         }),
+        ChangeNotifierProvider(create: (ctx) => ZoneRegistry()),
         ChangeNotifierProvider(create: (ctx) => UserPreferences()),
         ChangeNotifierProvider(create: (ctx) => LocationModel()),
       ],
       child: MaterialApp(
         title: 'FindMy Server',
-        theme: ThemeData(primarySwatch: Colors.blue),
-        darkTheme: ThemeData.dark(),
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.teal,
+            primary: Colors.teal,
+            brightness: Brightness.light,
+          ),
+          primaryColor: Colors.teal,
+          snackBarTheme: SnackBarThemeData(
+            backgroundColor: Colors.teal.shade800,
+            contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            selectedItemColor: Colors.teal,
+            unselectedItemColor: Colors.grey.shade600,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.teal,
+            primary: Colors.teal,
+            brightness: Brightness.dark,
+          ),
+          primaryColor: Colors.teal,
+          snackBarTheme: SnackBarThemeData(
+            backgroundColor: Colors.teal.shade900,
+            contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            selectedItemColor: Colors.tealAccent,
+            unselectedItemColor: Colors.grey.shade500,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
         home: const AppLayout(),
       ),
     );
@@ -63,6 +104,7 @@ class _AppLayoutState extends State<AppLayout> {
       if (mounted) {
         final authState = Provider.of<AuthState>(context, listen: false);
         final accessoryRegistry = Provider.of<AccessoryRegistry>(context, listen: false);
+        final zoneRegistry = Provider.of<ZoneRegistry>(context, listen: false);
 
         // Wire 401 handler: any 401 in AccessoryRegistry triggers AuthState logout
         accessoryRegistry.onUnauthorized = () {
@@ -71,6 +113,8 @@ class _AppLayoutState extends State<AppLayout> {
 
         if (authState.isLoggedIn) {
           accessoryRegistry.loadAccessories();
+          zoneRegistry.fetchZones();
+          zoneRegistry.fetchAlerts();
         }
       }
     });

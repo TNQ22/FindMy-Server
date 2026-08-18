@@ -10,6 +10,7 @@ from app.routes.devices import router as devices_router
 from app.routes.reports import router as reports_router
 from app.routes.sync import router as sync_router
 from app.routes.admin import router as admin_router
+from app.routes.zones import router as zones_router
 from app.services.sync_service import start_sync_scheduler, stop_sync_scheduler
 from app.services.decrypt_service import decrypt_pending_reports_background
 
@@ -72,6 +73,7 @@ app.include_router(devices_router)
 app.include_router(reports_router)
 app.include_router(sync_router)
 app.include_router(admin_router)
+app.include_router(zones_router)
 
 from app.config import settings
 
@@ -87,6 +89,27 @@ async def get_config():
         "google_client_id": settings.GOOGLE_CLIENT_ID,
         "sync_interval_minutes": settings.SYNC_INTERVAL_MINUTES
     }
+
+
+@app.get("/api/version")
+async def get_version():
+    candidates = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "version"),
+        os.path.join(os.getcwd(), "version"),
+        os.path.join(os.getcwd(), "..", "version"),
+        "/app/version",
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    ver = f.read().strip()
+                    if ver:
+                        return {"version": ver}
+            except Exception:
+                pass
+    return {"version": "1.1.1"}
+
 
 
 from app.routes.reports import fetch_location_reports

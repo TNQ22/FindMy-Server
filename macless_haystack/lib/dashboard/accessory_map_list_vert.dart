@@ -30,7 +30,7 @@ class _AccessoryMapListVerticalState extends State<AccessoryMapListVertical> {
   final MapController _mapController = MapController();
 
   void _centerPoint(LatLng point) {
-    _mapController.move(point, 18);
+    _mapController.move(point, 17);
   }
 
   @override

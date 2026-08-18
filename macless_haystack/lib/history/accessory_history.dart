@@ -9,12 +9,12 @@ import 'package:provider/provider.dart';
 import 'dart:math';
 
 class ClusteredHistoryEntry {
-  final double latitude;
-  final double longitude;
+  double latitude;
+  double longitude;
   final DateTime startTime;
   DateTime endTime;
-  final int? accuracy;
-  final String? batteryStatus;
+  int? accuracy;
+  String? batteryStatus;
   final List<LocationHistoryEntry> rawEntries;
 
   ClusteredHistoryEntry({
@@ -110,7 +110,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
           _historyEntries.map((e) => LatLng(e.latitude, e.longitude)).toList();
       try {
         final bounds = LatLngBounds.fromPoints(points);
-        _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(32)));
+        _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(32), maxZoom: 17.0));
       } catch (_) {
         if (_historyEntries.isNotEmpty) {
           _mapController.move(
@@ -118,7 +118,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
         }
       }
     } else if (widget.accessory.lastLocation != null) {
-      _mapController.move(widget.accessory.lastLocation!, 15.0);
+      _mapController.move(widget.accessory.lastLocation!, 17.0);
     }
   }
 
@@ -152,8 +152,11 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
       if (latDiff <= 0.001 && lonDiff <= 0.001) {
         lastCluster.endTime = entry.timestamp;
         lastCluster.rawEntries.add(entry);
+        lastCluster.latitude = entry.latitude;
+        lastCluster.longitude = entry.longitude;
+        lastCluster.accuracy = entry.accuracy ?? lastCluster.accuracy;
         if (entry.batteryStatus != null) {
-          // Keep latest non-null battery status
+          lastCluster.batteryStatus = entry.batteryStatus;
         }
       } else {
         clusters.add(ClusteredHistoryEntry(
@@ -173,6 +176,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
 
   @override
   Widget build(BuildContext context) {
+    final langCode = Localizations.maybeLocaleOf(context)?.languageCode ?? 'vi';
     final entries = _historyEntries;
     final clusters = _clusterEntries(entries);
     final historyLength = min(clusters.length, 255);
@@ -219,7 +223,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                   backgroundColor: Theme.of(context).colorScheme.surface,
                   initialCenter: widget.accessory.lastLocation ??
                       const LatLng(16.4637, 107.5909),
-                  maxZoom: 18.0,
+                  maxZoom: 21.0,
                   minZoom: 2.0,
                   initialZoom: 13.0,
                   interactionOptions: const InteractionOptions(
@@ -243,9 +247,12 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                   TileLayer(
                     tileProvider: NetworkTileProvider(),
                     urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2&hl=$langCode',
+                    subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
+                    maxZoom: 21,
+                    maxNativeZoom: 20,
                     userAgentPackageName: 'de.dchristl.headlesshaystack',
-                    tileBuilder: (context, child, tile) {
+                    /*tileBuilder: (context, child, tile) {
                       final isDark =
                           Theme.of(context).brightness == Brightness.dark;
                       return isDark
@@ -259,33 +266,53 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                               child: child,
                             )
                           : child;
-                    },
+                    },*/
                   ),
                   PolylineLayer(polylines: polylines),
                   MarkerLayer(
                     markers: clusters
-                        .map((cluster) => Marker(
-                              point: LatLng(cluster.latitude, cluster.longitude),
-                              width: _calcSize(cluster) + 8,
-                              height: _calcSize(cluster) + 8,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    showPopup = true;
-                                    popupEntry = cluster;
-                                  });
-                                },
-                                child: Icon(
-                                  Icons.circle,
-                                  size: isPointLayerVisible
-                                      ? _calcSize(cluster)
-                                      : 0,
-                                  color: cluster == popupEntry
-                                      ? Colors.red
-                                      : Theme.of(context).indicatorColor,
-                                ),
+                        .map((cluster) {
+                          final size = _calcSize(cluster);
+                          final isSelected = cluster == popupEntry;
+                          final dotColor = isSelected ? Colors.red : Theme.of(context).indicatorColor;
+
+                          return Marker(
+                            point: LatLng(cluster.latitude, cluster.longitude),
+                            width: size + 12,
+                            height: size + 12,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  showPopup = true;
+                                  popupEntry = cluster;
+                                });
+                              },
+                              child: Center(
+                                child: isPointLayerVisible
+                                    ? Container(
+                                        width: size,
+                                        height: size,
+                                        decoration: BoxDecoration(
+                                          color: dotColor,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.black,
+                                            width: isSelected ? 4.0 : 3.2,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.6),
+                                              blurRadius: 5,
+                                              offset: const Offset(0, 1.5),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
-                            ))
+                            ),
+                          );
+                        })
                         .toList(),
                   ),
                   if (showPopup && popupEntry != null)
@@ -408,7 +435,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                 ),
                 Text(
                   '⏳ Thời gian ở đây: ${_fmtDuration(cluster.duration)}',
-                  style: const TextStyle(fontSize: 11, color: Colors.blueAccent, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 11, color: Colors.teal, fontWeight: FontWeight.w500),
                 ),
               ],
               if (cluster.batteryStatus != null)

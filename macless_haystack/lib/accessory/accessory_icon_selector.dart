@@ -29,31 +29,85 @@ class AccessoryIconSelector extends StatelessWidget {
   /// The selected icon as a cupertino icon name is returned if the user selects an icon.
   /// Otherwise the selection is discarded and a null value is returned.
   static Future<String?> showIconSelection(BuildContext context, String currentIcon, Color highlighColor) async {
-  return await showDialog<String>(
-    context: context,
-    builder: (BuildContext context) {
-      return LayoutBuilder(
-        builder: (context, constraints) => Dialog(
-          child: GridView.count(
-            primary: false,
-            padding: const EdgeInsets.all(20),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            shrinkWrap: true,
-            crossAxisCount: min((constraints.maxWidth / 80).floor(), 8),
-            semanticChildCount: AccessoryIconModel.icons.length,
-            children: AccessoryIconModel.icons
-              .map((value) => IconButton(
-                icon: Icon(AccessoryIconModel.mapIcon(value)),
-                color: value == currentIcon ? highlighColor : null,
-                onPressed: () { Navigator.pop(context, value); },
-              )).toList(),
+    return await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return LayoutBuilder(
+          builder: (context, constraints) => Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            child: Container(
+              width: 520,
+              constraints: const BoxConstraints(maxHeight: 520),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: highlighColor.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.category_outlined, color: highlighColor, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('Chọn biểu tượng Thẻ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: GridView.count(
+                      primary: false,
+                      padding: const EdgeInsets.all(4),
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      shrinkWrap: true,
+                      crossAxisCount: min((constraints.maxWidth / 70).floor().clamp(4, 7), 6),
+                      semanticChildCount: AccessoryIconModel.icons.length,
+                      children: AccessoryIconModel.icons.map((value) {
+                        final isSel = value == currentIcon;
+                        final iconData = AccessoryIconModel.mapIcon(value) ?? Icons.place;
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => Navigator.pop(context, value),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSel ? highlighColor.withOpacity(0.18) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSel ? highlighColor : Colors.grey.withOpacity(0.25),
+                                width: isSel ? 2.2 : 1,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                iconData,
+                                color: isSel ? highlighColor : null,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      );
-    }
-  );
-}
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
