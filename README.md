@@ -1,71 +1,107 @@
-# FindMy Server
+# FindMy Server (v2.0.0)
 
-Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới **Apple Find My**, được đóng gói trọn gói bằng Docker. Hỗ trợ theo dõi vị trí các thiết bị OpenHaystack / AirTag tự chế (ESP32, NRF5x...) 24/7 một cách an toàn và bảo mật. Hỗ trợ đăng nhập nhiều người dùng bằng Google OAuth.
+Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới **Apple Find My**, được đóng gói trọn gói bằng Docker (hỗ trợ cả **x86_64** và **ARM64 / Raspberry Pi / Apple Silicon**). Hỗ trợ theo dõi vị trí các thiết bị OpenHaystack / AirTag tự chế (ESP32, NRF5x, ST17H66...) 24/7 một cách an toàn và bảo mật. Hỗ trợ đăng nhập nhiều người dùng bằng Google OAuth.
 
 ![Giao diện FindMy Server](images/dashboard_web.png)
 
 ---
 
-## Screenshots
+## 📸 Screenshots
 
-<details><summary>Website</summary>
+<details>
+<summary><b>🌐 Giao diện Web (Desktop)</b></summary>
 
-### Web
-![Dashboard](images/dashboard_web_swipe_acction.png)
-![Dashboard](images/history_web_light.png)
-![Dashboard](images/accessories_web.png)
-![Dashboard](images/settings_web.png)
+| Dashboard & Thao tác nhanh | Lịch sử di chuyển |
+| :---: | :---: |
+| ![Dashboard Swipe](images/dashboard_web_swipe_acction.png) | ![Lịch sử di chuyển](images/history_web_light.png) |
+
+| Quản lý thiết bị (Accessories) | Cấu hình thông báo & Hệ thống |
+| :---: | :---: |
+| ![Accessories](images/accessories_web.png) | ![Cấu hình](images/settings_web.png) |
+
+</details>
+
+<details>
+<summary><b>📱 Giao diện Di Động (Mobile Responsive)</b></summary>
+
+| Dashboard Mobile | Lịch sử Mobile | Cấu hình Mobile |
+| :---: | :---: | :---: |
+| ![Dashboard Mobile](images/dashboard_mobile.png) | ![History Mobile](images/history_mobile.png) | ![Settings Mobile](images/settings_mobile.png) |
 
 </details>
 
 ---
+
 ## 🌟 Tính Năng Nổi Bật
 
 - 👥 **Hồ Chứa iCloud Dùng Chung (Shared iCloud Pool)**:
-  - Thêm nhiều tài khoản Apple ID để tự động xoay vòng truy vấn vị trí, tránh bị giới hạn tần suất từ Apple.
-  - Hỗ trợ xác thực 2FA trực tiếp (Thiết bị tin cậy hoặc SMS).
+  - Thêm nhiều tài khoản Apple ID để tự động xoay vòng truy vấn vị trí, tránh bị giới hạn tần suất (rate-limit) từ Apple.
+  - Hỗ trợ xác thực 2FA trực tiếp trên giao diện Web (qua Thiết bị tin cậy hoặc mã SMS).
+  - Tự động theo dõi trạng thái sống/chết của từng tài khoản Apple ID.
+
+- 🛡️ **Vùng An Toàn & Cảnh Báo Ra/Vào (Geofencing / Safe Zones)**:
+  - Thiết lập không giới hạn các khu vực an toàn (Nhà riêng, Cơ quan, Trường học, Bãi đỗ xe...) với bán kính tùy chỉnh trực quan trên bản đồ.
+  - Tùy chọn sự kiện cảnh báo linh hoạt: Khi thẻ **Đi vào**, **Rời khỏi** hoặc **Cả hai**.
+  - Gán thẻ định vị vào từng vùng an toàn cụ thể để nhận thông báo tức thì khi vị trí thay đổi.
+
 - 🔔 **Thông Báo & Cảnh Báo Đa Kênh (Telegram, Discord, Webhook, Email)**:
-  - **Cảnh báo tài khoản iCloud**: Tự động thông báo khi tài khoản Apple ID bị hết hạn phiên đăng nhập, yêu cầu xác thực lại (2FA), hoặc mất kết nối với Apple.
-  - **Cảnh báo pin yếu**: Tự động gửi cảnh báo tức thì khi thẻ định vị bị yếu pin hoặc sắp cạn pin qua **Discord Webhook**, **Email (SMTP)**, **Telegram Bot**, hoặc **Custom Webhook (Zalo / n8n / Home Assistant)**.
-
-    Hệ thống tự động giải mã trạng thái pin từ các bản tin của mạng Apple Find My và phân loại thành **4 mức**:
-
+  - **Cảnh báo ra/vào Vùng An Toàn**: Thông báo ngay lập tức khi thiết bị rời khỏi hoặc đi vào khu vực giám sát kèm toạ độ và liên kết mở nhanh Google Maps.
+  - **Cảnh báo pin yếu & pin khẩn cấp**: Tự động giải mã trạng thái pin từ các bản tin của mạng Apple Find My và phân loại thành **4 mức**:
     | Mức mã hóa (Bit) | Trạng thái | Tỷ lệ pin ước tính | Mức độ cảnh báo |
     | :---: | :--- | :--- | :--- |
     | `00` | 🟢 **Đầy / Tốt (`ok`)** | ~75% – 100% | Bình thường |
     | `01` | 🟡 **Trung bình (`medium`)** | ~25% – 75% | Bình thường |
     | `10` | 🟠 **Yếu (`low`)** | ~10% – 25% | ⚠️ **Cảnh báo pin yếu** |
     | `11` | 🔴 **Rất yếu / Sắp cạn (`criticalLow`)** | < 10% | 🚨 **Cảnh báo khẩn cấp** |
+  - **Cảnh báo tài khoản iCloud**: Tự động cảnh báo khi tài khoản Apple ID bị hết hạn phiên đăng nhập hoặc yêu cầu xác thực lại (2FA).
+  - **Kênh hỗ trợ**: **Telegram Bot**, **Discord Webhook**, **Custom Webhook (Zalo OA / n8n / Home Assistant / Node-RED)**, **Email (SMTP)**.
+  - > 💡 **Cơ chế chống spam thông minh:** Cảnh báo chỉ được gửi 1 lần khi trạng thái thay đổi. Có nút **Test Send** trực tiếp trong cài đặt để kiểm tra kết nối từng kênh.
 
-  > 💡 **Cơ chế cảnh báo thông minh:** Cảnh báo chỉ được gửi 1 lần khi trạng thái chuyển sang lỗi hoặc pin yếu (tránh spam). Khi sự cố được khắc phục (đăng nhập lại hoặc thay pin mới), hệ thống sẽ tự động đặt lại cờ cảnh báo. Có nút gửi thử nghiệm (Test) trực tiếp cho từng kênh.
+- 🤝 **Chia Sẻ Thẻ Định Vị (Tag Sharing)**:
+  - Chia sẻ quyền theo dõi thẻ cho người dùng khác trong hệ thống thông qua địa chỉ Email.
+  - Người được chia sẻ có thể xem vị trí thời gian thực và lịch sử di chuyển mà không làm ảnh hưởng đến cấu hình gốc của thiết bị.
 
-- 🔒 **Đăng Nhập Google OAuth & Phân Quyền**: Đăng nhập an toàn bằng tài khoản Google, phân quyền Admin và User riêng biệt.
-- ⚡ **Tự Động Đồng Bộ Vị Trí 24/7**: Máy chủ tự động tải và giải mã vị trí ngầm định kỳ vào cơ sở dữ liệu mà không cần giữ trình duyệt mở.
+- 🎨 **Tùy Biến Thẻ & Biểu Tượng Đa Dạng**:
+  - Kho biểu tượng phong phú (Xe hơi, Xe máy, Thú cưng, Balo, Chìa khóa, Trẻ em, Thiết bị...) cùng bảng màu đa dạng giúp phân biệt trực quan trên bản đồ.
+
+- 🔒 **Đăng Nhập Google OAuth & Phân Quyền (RBAC)**:
+  - Đăng nhập bảo mật bằng tài khoản Google.
+  - Phân quyền rõ ràng giữa **Admin** (quản lý toàn bộ hệ thống, iCloud pool, người dùng) và **User** (quản lý thiết bị cá nhân).
+
+- ⚡ **Tự Động Đồng Bộ Vị Trí 24/7**:
+  - Máy chủ tự động đồng bộ ngầm và lưu trữ vị trí định kỳ vào cơ sở dữ liệu mà không cần giữ trình duyệt mở.
+
 - 🗺️ **Lịch Sử Di Chuyển Thông Minh**:
-  - Tự động gom các vị trí lân cận thành điểm dừng và hiển thị thời gian lưu trú.
-  - Kích thước icon điểm dừng co giãn theo thời gian lưu lại.
-- 📦 **Tất Cả Trong Một (All-in-One Docker)**: Giao diện Web (Flutter) và Backend (FastAPI) được đóng gói chung vào một container duy nhất (Port `6176`).
+  - Tự động gom các vị trí lân cận thành điểm dừng chân và hiển thị thời gian lưu trú cụ thể.
+  - Kích thước điểm dừng mở rộng tương ứng theo thời gian lưu trú.
+  - Hỗ trợ xem lại lộ trình theo từng khoảng thời gian tùy chọn.
+
+- 📦 **Tất Cả Trong Một (All-in-One Docker)**:
+  - Giao diện Web (Flutter) và Backend API (FastAPI) được đóng gói chung vào một container duy nhất (Port `6176`), tương thích kiến trúc `amd64` và `arm64`.
 
 ---
 
-## 🚀 Khởi Chạy FindMy Server Nhanh Với Docker Compose
+## 🚀 Khởi Chạy Nhanh Với Docker Compose
 
 ### 1. Tạo file `.env`
 
 Tạo file `.env` trong thư mục dự án với nội dung mẫu:
 
 ```env
-# Google OAuth (Bắt buộc để đăng nhập)
-# https://developers.google.com/identity/protocols/oauth2/web-server?hl=vi
+# Google OAuth 2.0 (Bắt buộc để xác thực người dùng)
+# Hướng dẫn tạo: https://developers.google.com/identity/protocols/oauth2/web-server?hl=vi
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 
-# Chu kỳ tự động lấy vị trí (phút), không nên để thấp hơn 15 phút để tránh bị block
-SYNC_INTERVAL_MINUTES=60
+# Chu kỳ tự động lấy vị trí từ Apple (phút) - Khuyến nghị từ 15 đến 60 phút
+SYNC_INTERVAL_MINUTES=30
 
-# Danh sách email Admin (cách nhau bởi dấu phẩy)
+# Danh sách email Admin hệ thống (cách nhau bởi dấu phẩy)
 ADMIN_EMAILS=admin@example.com
 
-# (Tùy chọn) Cấu hình gửi mail cảnh báo Pin yếu
+# Chuỗi bí mật JWT (Hãy thay đổi thành chuỗi ngẫu nhiên dài và bảo mật)
+JWT_SECRET=your-super-secret-jwt-key-here-change-in-production
+
+# (Tùy chọn) Cấu hình máy chủ SMTP để gửi Email cảnh báo
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -78,9 +114,7 @@ JWT_SECRET:hrn23jbvad5k8iHkjatijjjaf788923kjkjkjtkopukhw7wfgnynnyoww6rnrc4jybw6a
 
 ---
 
-### 2. Khởi chạy bằng Docker Compose
-
-Tạo file `docker-compose.yml`:
+### 2. Tạo file `docker-compose.yml`
 
 ```yaml
 services:
@@ -125,23 +159,42 @@ services:
         max-file: "3"
     depends_on:
       - anisette
+
 volumes:
   anisette_data:
-
 ```
 
-Chạy lệnh để khởi động:
+---
+
+### 3. Khởi Chạy Ứng Dụng
+
+Chạy lệnh sau để tải container và khởi chạy ngầm:
 
 ```bash
 docker compose up -d
 ```
 
+Sau khi khởi chạy thành công:
+- 🌐 **Giao diện Web**: [http://localhost:6176](http://localhost:6176)
+- 📖 **API Docs (Swagger UI)**: [http://localhost:6176/docs](http://localhost:6176/docs)
+
 ---
 
-### 3. Truy Cập Ứng Dụng
+## 🔔 Hướng Dẫn Cấu Hình Kênh Cảnh Báo
 
-- 🌐 **Giao diện Web**: [http://localhost:6176](http://localhost:6176)
-- 📖 **API Docs (Swagger)**: [http://localhost:6176/docs](http://localhost:6176/docs)
+Mỗi người dùng có thể cấu hình kênh thông báo riêng tại mục **Cài đặt thông báo (Notification Settings)** trên thanh điều hướng:
+
+1. **Telegram Bot**:
+   - Tạo bot mới qua [@BotFather](https://t.me/BotFather) để lấy `Bot Token`.
+   - Lấy `Chat ID` cá nhân hoặc nhóm qua [@userinfobot](https://t.me/userinfobot) hoặc [@getidsbot](https://t.me/getidsbot).
+   - Nhập `Token` và `Chat ID` vào cài đặt, sau đó bấm **Thử nghiệm (Test)**.
+
+2. **Discord Webhook**:
+   - Vào kênh Discord của bạn > **Chỉnh sửa kênh (Edit Channel)** > **Tích hợp (Integrations)** > **Tạo Webhook (Webhooks)** > Sao chép URL Webhook.
+   - Dán URL vào mục cấu hình Discord.
+
+3. **Custom Webhook (Zalo / n8n / Home Assistant)**:
+   - Cung cấp URL webhook (POST JSON). FindMy Server sẽ tự động đẩy payload dữ liệu sự kiện (`low_battery`, `geofence_alert`, `icloud_status`) để bạn dễ dàng tích hợp vào luồng tự động hóa Zalo OA, Home Assistant automation hoặc n8n.
 
 ---
 
