@@ -92,6 +92,8 @@ class DeviceResponse(BaseModel):
     last_lon: float | None = None
     last_seen_at: datetime | None = None
     last_battery: str | None = None
+    owner_user_id: Optional[int] = None
+    is_owner: bool = True
 
     @field_validator('created_at', 'last_seen_at', mode='after')
     @classmethod
@@ -139,12 +141,18 @@ class ShareDeviceRequest(BaseModel):
     target_user_id: Optional[int] = None
     target_email: Optional[str] = None
 
+class TransferOwnershipRequest(BaseModel):
+    device_id: Optional[int] = None
+    hashed_adv_key: Optional[str] = None
+    target_user_id: int
+
 class SharedUserInfo(BaseModel):
     device_id: int
     user_id: int
     email: str
     name: str
     picture: Optional[str] = None
+    is_owner: bool = False
 
 # ── Sync ──────────────────────────────────────────────────────────────────────
 

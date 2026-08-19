@@ -42,6 +42,7 @@ class Device(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    owner_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_adv_key: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     private_key_b64: Mapped[str | None] = mapped_column(Text, nullable=True)

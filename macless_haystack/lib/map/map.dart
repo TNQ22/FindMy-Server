@@ -66,15 +66,22 @@ class _AccessoryMapState extends State<AccessoryMap> {
         .map((accessory) => accessory.lastLocation!)
         .toList();
 
+    final isDesktop = MediaQuery.of(context).size.width >= 720;
+
     if (activeTagLocations.isNotEmpty) {
       if (activeTagLocations.length == 1) {
         // Only 1 tag: zoom in comfortably (zoom 17.0) so surrounding context is clear
         _mapController.move(activeTagLocations.first, 17.0);
       } else {
-        // Multiple tags: fit all active tags across any distance without artificial minZoom clamp
+        // Multiple tags: fit all active tags with insets for floating top bar and sidebar
         _mapController.fitCamera(CameraFit.bounds(
             bounds: LatLngBounds.fromPoints(activeTagLocations),
-            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 64),
+            padding: EdgeInsets.fromLTRB(
+              isDesktop ? 410 : 36,
+              isDesktop ? 95 : 64,
+              36,
+              36,
+            ),
             maxZoom: 17.0,
             minZoom: 2.0));
       }

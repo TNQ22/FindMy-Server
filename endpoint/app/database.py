@@ -67,19 +67,22 @@ def run_direct_sqlite_migration():
                 cursor.execute("DROP TABLE icloud_accounts;")
                 cursor.execute("ALTER TABLE icloud_accounts_new RENAME TO icloud_accounts;")
 
-        # ── devices: new location columns ─────────────────────────────────────
+        # ── devices: new location columns & ownership ─────────────────────────
         cursor.execute("PRAGMA table_info(devices);")
         dev_cols = [row[1] for row in cursor.fetchall()]
         if dev_cols:
             for col, col_type in [
-                ("last_lat",     "REAL"),
-                ("last_lon",     "REAL"),
-                ("last_seen_at", "DATETIME"),
-                ("last_battery", "VARCHAR(50)"),
+                ("last_lat",      "REAL"),
+                ("last_lon",      "REAL"),
+                ("last_seen_at",  "DATETIME"),
+                ("last_battery",  "VARCHAR(50)"),
+                ("owner_user_id", "INTEGER"),
             ]:
                 if col not in dev_cols:
                     print(f"Direct Migration: Adding {col} column to devices...")
                     cursor.execute(f"ALTER TABLE devices ADD COLUMN {col} {col_type};")
+            # Backfill owner_user_id for existing records
+            cursor.execute("UPDATE devices SET owner_user_id = user_id WHERE owner_user_id IS NULL;")
 
         # ── location_reports: new decrypted-location columns ──────────────────
         cursor.execute("PRAGMA table_info(location_reports);")

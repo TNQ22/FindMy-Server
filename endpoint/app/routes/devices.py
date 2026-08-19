@@ -12,6 +12,7 @@ from app.schemas import (
     LocationHistoryResponse,
     ShareDeviceRequest,
     SharedUserInfo,
+    TransferOwnershipRequest,
 )
 from app.services.auth_service import get_current_user
 
@@ -59,6 +60,14 @@ async def get_shared_users(
         if not source_dev:
             raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
 
+    # Determine effective owner id
+    effective_owner_id = source_dev.owner_user_id
+    if effective_owner_id is None:
+        first_dev = (await db.execute(
+            select(Device).where(Device.hashed_adv_key == source_dev.hashed_adv_key).order_by(Device.id.asc()).limit(1)
+        )).scalar_one_or_none()
+        effective_owner_id = first_dev.user_id if first_dev else current_user.id
+
     # Find all other instances of this key belonging to other users
     shared_stmt = (
         select(Device, User)
@@ -79,6 +88,7 @@ async def get_shared_users(
                 email=user.email,
                 name=user.name,
                 picture=user.picture,
+                is_owner=(user.id == effective_owner_id),
             )
         )
     return shared_users
@@ -114,7 +124,7 @@ async def share_device_to_user(
     if not target_user:
         raise HTTPException(
             status_code=404,
-            detail="Không tìm thấy người dùng này. Người thân cần đăng nhập vào hệ thống trước!",
+            detail="Không tìm thấy người dùng này. Người được chia sẻ cần đăng nhập vào hệ thống trước!",
         )
 
     if target_user.id == current_user.id:
@@ -135,6 +145,7 @@ async def share_device_to_user(
 
     new_dev = Device(
         user_id=target_user.id,
+        owner_user_id=source_dev.owner_user_id or current_user.id,
         name=source_dev.name,
         hashed_adv_key=source_dev.hashed_adv_key,
         private_key_b64=source_dev.private_key_b64,
@@ -148,19 +159,78 @@ async def share_device_to_user(
     return {"status": "ok", "message": f"Đã chia sẻ thiết bị '{source_dev.name}' cho {target_user.email}"}
 
 
+@router.post("/transfer-ownership")
+async def transfer_device_ownership(
+    body: TransferOwnershipRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Transfer device ownership from current owner to another shared user."""
+    stmt = select(Device).where(Device.user_id == current_user.id)
+    if body.device_id:
+        stmt = stmt.where(Device.id == body.device_id)
+    elif body.hashed_adv_key:
+        stmt = stmt.where(Device.hashed_adv_key == body.hashed_adv_key)
+    else:
+        raise HTTPException(status_code=400, detail="device_id hoặc hashed_adv_key là bắt buộc")
+
+    source_dev = (await db.execute(stmt)).scalar_one_or_none()
+    if not source_dev:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị trong tài khoản của bạn")
+
+    # Determine effective owner id
+    effective_owner_id = source_dev.owner_user_id
+    if effective_owner_id is None:
+        first_dev = (await db.execute(
+            select(Device).where(Device.hashed_adv_key == source_dev.hashed_adv_key).order_by(Device.id.asc()).limit(1)
+        )).scalar_one_or_none()
+        effective_owner_id = first_dev.user_id if first_dev else current_user.id
+
+    if current_user.id != effective_owner_id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Chỉ Chủ sở hữu hiện tại mới có quyền chuyển giao quyền sở hữu Tag")
+
+    if body.target_user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Bạn đang là Chủ sở hữu của thiết bị này")
+
+    # Target user must be a registered user
+    target_user = (await db.execute(select(User).where(User.id == body.target_user_id))).scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng nhận quyền sở hữu")
+
+    target_dev = (await db.execute(
+        select(Device).where(
+            Device.user_id == target_user.id,
+            Device.hashed_adv_key == source_dev.hashed_adv_key
+        )
+    )).scalar_one_or_none()
+    if not target_dev:
+        raise HTTPException(status_code=400, detail="Người nhận cần được chia sẻ thiết bị này trước khi trao quyền sở hữu")
+
+    # Update all instances of this key to have new owner_user_id
+    all_devs = (await db.execute(
+        select(Device).where(Device.hashed_adv_key == source_dev.hashed_adv_key)
+    )).scalars().all()
+
+    for d in all_devs:
+        d.owner_user_id = target_user.id
+
+    await db.commit()
+    return {"status": "ok", "message": f"Đã trao toàn bộ quyền Chủ sở hữu Tag cho {target_user.email}"}
+
+
 @router.delete("/shared-with/{target_device_id}")
 async def unshare_device_from_user(
     target_device_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Unshare a device by deleting the target user's shared device instance."""
+    """Unshare a device by deleting the target user's shared device instance with owner protection."""
     target_dev = (await db.execute(select(Device).where(Device.id == target_device_id))).scalar_one_or_none()
     if not target_dev:
         raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị chia sẻ")
 
     # Check if current user has the matching key
-    owner_dev = (
+    caller_dev = (
         await db.execute(
             select(Device).where(
                 Device.user_id == current_user.id,
@@ -169,8 +239,27 @@ async def unshare_device_from_user(
         )
     ).scalar_one_or_none()
 
-    if not owner_dev:
-        raise HTTPException(status_code=403, detail="Bạn không có quyền hủy chia sẻ thiết bị này")
+    if not caller_dev:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập thiết bị này")
+
+    # Determine effective owner id
+    effective_owner_id = caller_dev.owner_user_id
+    if effective_owner_id is None:
+        first_dev = (await db.execute(
+            select(Device).where(Device.hashed_adv_key == caller_dev.hashed_adv_key).order_by(Device.id.asc()).limit(1)
+        )).scalar_one_or_none()
+        effective_owner_id = first_dev.user_id if first_dev else current_user.id
+
+    is_caller_owner = (current_user.id == effective_owner_id) or current_user.is_admin
+    is_self_removal = (target_dev.user_id == current_user.id)
+
+    # 1. Target is the owner -> No one can revoke the owner's device
+    if target_dev.user_id == effective_owner_id and not is_self_removal:
+        raise HTTPException(status_code=403, detail="Bạn không thể thu hồi hoặc xóa quyền của Chủ sở hữu Tag!")
+
+    # 2. Caller is NOT the owner and trying to revoke someone else's device -> Forbidden!
+    if not is_caller_owner and not is_self_removal:
+        raise HTTPException(status_code=403, detail="Chỉ Chủ sở hữu của Tag mới có quyền thu hồi chia sẻ của người khác!")
 
     await db.delete(target_dev)
     await db.commit()
@@ -278,6 +367,7 @@ async def create_device(
 
     device = Device(
         user_id        = current_user.id,
+        owner_user_id  = current_user.id,
         name           = body.name,
         hashed_adv_key = derived_hashed_key,
         private_key_b64 = body.private_key_b64,

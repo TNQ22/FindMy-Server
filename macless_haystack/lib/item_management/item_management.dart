@@ -37,12 +37,11 @@ class KeyManagement extends StatelessWidget {
               return Material(
                   child: ListTile(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => AccessoryDetail(
-                              accessory: accessory,
-                            )),
+                  showDialog(
+                    context: context,
+                    builder: (context) => AccessoryDetail(
+                      accessory: accessory,
+                    ),
                   );
                 },
                 title: Text(

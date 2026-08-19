@@ -14,10 +14,7 @@ import 'package:macless_haystack/item_management/accessory_name_input.dart';
 class AccessoryDetail extends StatefulWidget {
   final Accessory accessory;
 
-  /// A page displaying the editable information of a specific [accessory].
-  ///
-  /// This shows the editable information of a specific [accessory] and
-  /// allows the user to edit them.
+  /// A dialog displaying the editable information of a specific [accessory].
   const AccessoryDetail({
     super.key,
     required this.accessory,
@@ -27,9 +24,6 @@ class AccessoryDetail extends StatefulWidget {
   State<StatefulWidget> createState() {
     return _AccessoryDetailState();
   }
-
-// @override
-// _AccessoryDetailState createState() => _AccessoryDetailState();
 }
 
 class _AccessoryDetailState extends State<AccessoryDetail> {
@@ -40,7 +34,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
 
   @override
   void initState() {
-    // Initialize changed accessory with existing accessory properties.
     newAccessory = widget.accessory.clone();
     super.initState();
     _loadMacAddress();
@@ -79,164 +72,361 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.accessory.name),
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
+
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
       ),
-      body: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              Center(
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: AccessoryIcon(
-                        size: 100,
-                        icon: newAccessory.icon,
-                        color: newAccessory.color,
-                      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 520,
+          maxHeight: mediaQuery.size.height * 0.90,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top Bar with Emerald Green / Teal Gradient
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade800, Colors.teal.shade600],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Padding(
-                        padding: const EdgeInsets.all(10.0),
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Color.fromARGB(255, 200, 200, 200),
-                            shape: BoxShape.circle,
+                    child: const Icon(Icons.settings, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Thiết Lập "${widget.accessory.name}"',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: IconButton(
-                            onPressed: () async {
-                              // Show icon selection
-                              String? selectedIcon =
-                                  await AccessoryIconSelector.showIconSelection(
-                                      context,
-                                      newAccessory.rawIcon,
-                                      newAccessory.color);
-                              if (selectedIcon != null) {
-                                setState(() {
-                                  newAccessory.setIcon(selectedIcon);
-                                });
-                                if (context.mounted) {
-                                  // Show color selection only when icon is selected
-                                  Color? selectedColor =
-                                      await AccessoryColorSelector
-                                          .showColorSelection(
-                                              context, newAccessory.color);
-                                  if (selectedColor != null) {
-                                    setState(() {
-                                      newAccessory.color = selectedColor;
-                                    });
-                                  }
-                                }
-                              }
-                            },
-                            icon: Icon(
-                              Icons.edit,
-                              color: Theme.of(context).primaryColor,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Chỉnh sửa thông tin, biểu tượng và cấu hình Tag',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 14 : 22,
+                  vertical: 18,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Centered Icon with Edit Overlay
+                      Center(
+                        child: Stack(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: newAccessory.color.withOpacity(0.12),
+                              ),
+                              child: AccessoryIcon(
+                                size: 84,
+                                icon: newAccessory.icon,
+                                color: newAccessory.color,
+                              ),
                             ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Material(
+                                elevation: 3,
+                                shape: const CircleBorder(),
+                                color: Colors.teal.shade700,
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () async {
+                                    String? selectedIcon =
+                                        await AccessoryIconSelector.showIconSelection(
+                                            context,
+                                            newAccessory.rawIcon,
+                                            newAccessory.color);
+                                    if (selectedIcon != null) {
+                                      setState(() {
+                                        newAccessory.setIcon(selectedIcon);
+                                      });
+                                      if (context.mounted) {
+                                        Color? selectedColor =
+                                            await AccessoryColorSelector
+                                                .showColorSelection(
+                                                    context, newAccessory.color);
+                                        if (selectedColor != null) {
+                                          setState(() {
+                                            newAccessory.color = selectedColor;
+                                          });
+                                        }
+                                      }
+                                    }
+                                  },
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: Icon(
+                                      Icons.edit,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Name Input
+                      AccessoryNameInput(
+                        initialValue: newAccessory.name,
+                        onChanged: (value) {
+                          setState(() {
+                            newAccessory.name = value;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Active Switch Tile
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.withAlpha(40)),
+                        ),
+                        child: SwitchListTile(
+                          value: newAccessory.isActive,
+                          activeColor: Colors.teal,
+                          title: const Text(
+                            'Kích hoạt Tag (Hoạt động)',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                          subtitle: Text(
+                            newAccessory.isActive ? 'Đang định vị và đồng bộ dữ liệu' : 'Đang tạm dừng',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          onChanged: (checked) {
+                            setState(() {
+                              newAccessory.isActive = checked;
+                            });
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Battery Tile
+                      _buildBatteryTile(),
+
+                      const SizedBox(height: 8),
+
+                      // MAC Address Card
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.withAlpha(40)),
+                        ),
+                        child: ListTile(
+                          leading: const Icon(Icons.qr_code_2, color: Colors.teal, size: 24),
+                          title: const Text('Địa chỉ MAC:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          subtitle: Text(
+                            _macAddress,
+                            style: const TextStyle(fontSize: 14, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              AccessoryNameInput(
-                initialValue: newAccessory.name,
-                onChanged: (value) {
-                  setState(() {
-                    newAccessory.name = value;
-                  });
-                },
-              ),
-              SwitchListTile(
-                value: newAccessory.isActive,
-                title: const Text('Is Active'),
-                onChanged: (checked) {
-                  setState(() {
-                    newAccessory.isActive = checked;
-                  });
-                },
-              ),
-              _buildBatteryTile(),
-              ListTile(
-                title: const Text('Địa chỉ MAC:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: Text(_macAddress, style: const TextStyle(fontSize: 16)),
-              ),
-              ListTile(
-                title: OutlinedButton(
-                  onPressed: _formKey.currentState == null ||
-                          !_formKey.currentState!.validate()
-                      ? null
-                      : () {
-                          if (_formKey.currentState != null &&
-                              _formKey.currentState!.validate()) {
-                            // Update accessory with changed values
-                            var accessoryRegistry =
-                                Provider.of<AccessoryRegistry>(context,
-                                    listen: false);
-                            accessoryRegistry.editAccessory(
-                                widget.accessory, newAccessory);
-                            AppToast.showText(
-                              context,
-                              'Đã lưu thay đổi!',
-                              icon: Icons.check_circle,
-                              backgroundColor: Colors.teal.shade800,
-                            );
-                          }
-                        },
-                  child: const Text('Save'),
-                ),
-              ),
-              ListTile(
-                title: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.error,
+
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 12),
+
+                      // Action Buttons
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: const Text('Lưu Thay Đổi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          onPressed: _formKey.currentState == null ||
+                                  !_formKey.currentState!.validate()
+                              ? null
+                              : () {
+                                  if (_formKey.currentState != null &&
+                                      _formKey.currentState!.validate()) {
+                                    var accessoryRegistry =
+                                        Provider.of<AccessoryRegistry>(context,
+                                            listen: false);
+                                    accessoryRegistry.editAccessory(
+                                        widget.accessory, newAccessory);
+                                    AppToast.showText(
+                                      context,
+                                      'Đã lưu thay đổi cho "${newAccessory.name}"',
+                                      icon: Icons.check_circle,
+                                      backgroundColor: Colors.teal.shade800,
+                                    );
+                                    Navigator.pop(context);
+                                  }
+                                },
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.amber.shade900,
+                                side: BorderSide(color: Colors.amber.shade700),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.history_toggle_off, size: 16),
+                              label: const Text('Đặt lại Lịch sử', style: TextStyle(fontSize: 12)),
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    title: const Text('Đặt lại lịch sử Tag'),
+                                    content: Text('Bạn có chắc muốn xóa toàn bộ lịch sử vị trí của "${widget.accessory.name}"?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('Hủy'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.amber.shade900,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Xác nhận đặt lại'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirm == true && context.mounted) {
+                                  var accessoryRegistry =
+                                      Provider.of<AccessoryRegistry>(context, listen: false);
+                                  accessoryRegistry.deleteData(widget.accessory);
+                                  AppToast.showText(
+                                    context,
+                                    'Đã xóa toàn bộ lịch sử vị trí của thiết bị',
+                                    icon: Icons.delete_outline,
+                                    backgroundColor: Colors.amber.shade900,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.shade700,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.delete_outline, size: 16),
+                              label: const Text('Xóa Tag', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    title: const Text('Xóa Tag'),
+                                    content: Text('Bạn có chắc chắn muốn xóa Tag "${widget.accessory.name}" khỏi tài khoản không? Hành động này không thể hoàn tác.'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('Hủy'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red.shade700,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Xóa vĩnh viễn'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirm == true && context.mounted) {
+                                  var accessoryRegistry =
+                                      Provider.of<AccessoryRegistry>(context, listen: false);
+                                  accessoryRegistry.removeAccessory(widget.accessory);
+                                  AppToast.showText(
+                                    context,
+                                    'Đã xóa Tag "${widget.accessory.name}"',
+                                    icon: Icons.delete_forever,
+                                    backgroundColor: Colors.red.shade800,
+                                  );
+                                  Navigator.pop(context);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  onPressed: () {
-                    // Update accessory with changed values
-                    var accessoryRegistry =
-                        Provider.of<AccessoryRegistry>(context, listen: false);
-                    accessoryRegistry.deleteData(widget.accessory);
-                    AppToast.showText(
-                      context,
-                      'Đã xóa toàn bộ dữ liệu lịch sử của thiết bị',
-                      icon: Icons.delete_outline,
-                      backgroundColor: Colors.amber.shade900,
-                    );
-                  },
-                  child: const Text('Reset Accessory'),
                 ),
               ),
-              ListTile(
-                title: ElevatedButton(
-                  style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.resolveWith<Color?>(
-                      (Set<WidgetState> states) {
-                        return Theme.of(context).colorScheme.error;
-                      },
-                    ),
-                  ),
-                  child: const Text(
-                    'Delete Accessory',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  onPressed: () {
-                    // Delete accessory
-                    var accessoryRegistry =
-                        Provider.of<AccessoryRegistry>(context, listen: false);
-                    accessoryRegistry.removeAccessory(widget.accessory);
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -274,10 +464,17 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
         color = Colors.grey;
     }
 
-    return ListTile(
-      leading: Icon(icon, color: color, size: 28),
-      title: const Text('Trạng thái pin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-      subtitle: Text(text, style: TextStyle(fontSize: 16, color: color)),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.withAlpha(40)),
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: color, size: 26),
+        title: const Text('Trạng thái pin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        subtitle: Text(text, style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.w600)),
+      ),
     );
   }
 }

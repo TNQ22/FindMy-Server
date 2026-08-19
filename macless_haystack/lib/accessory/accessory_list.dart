@@ -75,13 +75,19 @@ class _AccessoryListState extends State<AccessoryList> {
               itemBuilder: (context, index) {
                 var accessory = accessories[index];
                 // Calculate distance from users devices location
-                Widget? trailing;
+                String? distanceStr;
                 if (locationModel.here != null &&
                     accessory.lastLocation != null) {
                   const Distance distance = Distance();
                   final double km = distance.as(LengthUnit.Kilometer,
                       locationModel.here!, accessory.lastLocation!);
-                  trailing = Text('$km km');
+                  if (km < 1) {
+                    distanceStr = '${(km * 1000).round()} m';
+                  } else if (km < 10) {
+                    distanceStr = '${km.toStringAsFixed(1)} km';
+                  } else {
+                    distanceStr = '${km.round()} km';
+                  }
                 }
                 // Get human readable location
                 return Slidable(
@@ -155,7 +161,7 @@ class _AccessoryListState extends State<AccessoryList> {
                   child: Builder(builder: (context) {
                     return AccessoryListItem(
                       accessory: accessory,
-                      distance: trailing,
+                      distanceText: distanceStr,
                       herePlace: locationModel.herePlace,
                       onTap: () {
                         if (accessory.isActive) {

@@ -18,7 +18,7 @@ class ItemShareAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: 'Chia sẻ cho người thân',
+      tooltip: 'Chia sẻ với người khác',
       icon: const Icon(Icons.share, color: Colors.teal),
       onPressed: () {
         showDialog(
@@ -222,6 +222,7 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Hủy chia sẻ Tag'),
         content: Text('Bạn có chắc muốn dừng chia sẻ Tag này với $email?'),
         actions: [
@@ -231,7 +232,10 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Dừng chia sẻ'),
           ),
         ],
@@ -259,10 +263,11 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
         }
         await _fetchData();
       } else {
+        final data = jsonDecode(res.body);
         if (mounted) {
           AppToast.showText(
             context,
-            'Hủy chia sẻ thất bại',
+            data['detail'] ?? 'Hủy chia sẻ thất bại',
             icon: Icons.error_outline,
             backgroundColor: Colors.redAccent,
           );
@@ -282,10 +287,93 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
     }
   }
 
+  Future<void> _transferOwnership(int targetUserId, String targetEmail) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.workspace_premium, color: Colors.amber, size: 24),
+            SizedBox(width: 8),
+            Text('Trao quyền Sở hữu Tag', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn trao toàn bộ quyền Chủ sở hữu Tag "${widget.accessory.name}" cho tài khoản $targetEmail không?\n\nSau khi trao quyền, tài khoản này sẽ trở thành Chủ sở hữu chính của Tag.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade800,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('Xác nhận trao quyền'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _submitting = true);
+
+    try {
+      final res = await http.post(
+        Uri.parse('$_baseUrl/api/devices/transfer-ownership'),
+        headers: _authHeaders,
+        body: jsonEncode({
+          'hashed_adv_key': widget.accessory.hashedPublicKey,
+          'target_user_id': targetUserId,
+        }),
+      );
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        if (mounted) {
+          AppToast.showText(
+            context,
+            data['message'] ?? 'Đã chuyển giao quyền Chủ sở hữu thành công!',
+            icon: Icons.check_circle,
+            backgroundColor: Colors.teal.shade800,
+          );
+        }
+        await _fetchData();
+      } else {
+        if (mounted) {
+          AppToast.showText(
+            context,
+            data['detail'] ?? 'Chuyển giao quyền sở hữu thất bại',
+            icon: Icons.error_outline,
+            backgroundColor: Colors.redAccent,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.showText(
+          context,
+          'Lỗi: $e',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.redAccent,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final isMobile = mediaQuery.size.width < 600;
+    final bool isCurrentOwner = !_sharedUsers.any((u) => u['is_owner'] == true);
 
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
@@ -296,7 +384,7 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 500,
+          maxWidth: 520,
           maxHeight: mediaQuery.size.height * 0.88,
         ),
         child: Column(
@@ -339,7 +427,7 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
                         ),
                         const SizedBox(height: 2),
                         const Text(
-                          'Chia sẻ quyền theo dõi vị trí cho người thân',
+                          'Chia sẻ quyền theo dõi vị trí với người khác',
                           style: TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],
@@ -537,7 +625,7 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
                                     const Icon(Icons.people_outline, size: 18, color: Colors.teal),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Đang chia sẻ với (${_sharedUsers.length})',
+                                      'Danh sách người dùng liên kết (${_sharedUsers.length})',
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                     ),
                                   ],
@@ -562,37 +650,86 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
                                 else
                                   Column(
                                     children: _sharedUsers.map<Widget>((su) {
+                                      final bool isOwner = su['is_owner'] == true;
+
                                       return Card(
-                                        margin: const EdgeInsets.only(bottom: 6),
-                                        elevation: 0,
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        elevation: 0.5,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          side: BorderSide(color: Colors.grey.withAlpha(50)),
+                                          borderRadius: BorderRadius.circular(10),
+                                          side: BorderSide(
+                                            color: isOwner ? Colors.amber.shade300 : Colors.grey.withAlpha(50),
+                                            width: isOwner ? 1.5 : 1.0,
+                                          ),
                                         ),
                                         child: ListTile(
                                           dense: true,
                                           leading: CircleAvatar(
                                             radius: 16,
-                                            backgroundColor: Colors.teal.shade100,
-                                            child: Text(
-                                              (su['name'] != null && su['name'].toString().isNotEmpty)
-                                                  ? su['name'].toString().substring(0, 1).toUpperCase()
-                                                  : 'U',
-                                              style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.bold),
+                                            backgroundColor: isOwner ? Colors.amber.shade100 : Colors.teal.shade100,
+                                            child: Icon(
+                                              isOwner ? Icons.workspace_premium : Icons.person,
+                                              size: 18,
+                                              color: isOwner ? Colors.amber.shade900 : Colors.teal.shade900,
                                             ),
                                           ),
-                                          title: Text(
-                                            su['email'] ?? '',
-                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                          title: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  su['email'] ?? '',
+                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              if (isOwner)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.amber.shade100,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: Colors.amber.shade400),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.star, size: 12, color: Colors.amber.shade900),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Chủ sở hữu',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.amber.shade900,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                           subtitle: su['name'] != null && su['name'].toString().isNotEmpty
                                               ? Text(su['name'], style: const TextStyle(fontSize: 11))
                                               : null,
-                                          trailing: IconButton(
-                                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                            tooltip: 'Dừng chia sẻ',
-                                            onPressed: _submitting ? null : () => _unshareDevice(su['device_id'], su['email']),
-                                          ),
+                                          trailing: isOwner
+                                              ? null
+                                              : (isCurrentOwner
+                                                  ? Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        IconButton(
+                                                          icon: const Icon(Icons.workspace_premium_outlined, color: Colors.amber, size: 20),
+                                                          tooltip: 'Trao quyền Chủ sở hữu',
+                                                          onPressed: _submitting ? null : () => _transferOwnership(su['user_id'], su['email']),
+                                                        ),
+                                                        IconButton(
+                                                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                                          tooltip: 'Hủy chia sẻ',
+                                                          onPressed: _submitting ? null : () => _unshareDevice(su['device_id'], su['email']),
+                                                        ),
+                                                      ],
+                                                    )
+                                                  : null),
                                         ),
                                       );
                                     }).toList(),

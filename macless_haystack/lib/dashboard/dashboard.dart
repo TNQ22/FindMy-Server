@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:logger/logger.dart';
 import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:macless_haystack/item_management/refresh_action.dart';
 import 'package:provider/provider.dart';
+import 'package:macless_haystack/accessory/accessory_list.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:macless_haystack/dashboard/accessory_map_list_vert.dart';
 import 'package:macless_haystack/item_management/item_management.dart';
 import 'package:macless_haystack/item_management/new_item_action.dart';
 import 'package:macless_haystack/location/location_model.dart';
+import 'package:macless_haystack/map/map.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
+import 'package:macless_haystack/zones/zone_management_dialog.dart';
 
 import '../accessory/accessory_model.dart';
 import 'package:macless_haystack/preferences/user_avatar_menu.dart';
 
 class Dashboard extends StatefulWidget {
-  /// Displays the layout for the mobile view of the app.
+  /// Displays the layout for the app with Apple Find My style floating UI on desktop.
   const Dashboard({super.key});
 
   @override
@@ -27,21 +32,25 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   bool _hasShownStartupToast = false;
   int _selectedIndex = 0;
+  int _desktopTab = 0; // 0: Map List, 1: Key Management
+  bool _isSidebarCollapsed = false;
+  bool _isSyncing = false;
+  final MapController _mapController = MapController();
 
   var logger = Logger(
     printer: PrettyPrinter(),
   );
 
-  /// A list of the tabs displayed in the bottom tab bar.
+  /// A list of the tabs displayed in the mobile bottom tab bar.
   late final List<Map<String, dynamic>> _tabs = [
     {
-      'title': 'My Accessories',
+      'title': 'FindMy Server',
       'body': (ctx) => AccessoryMapListVertical(
             loadLocationUpdates: loadLocationUpdates,
             saveOrderUpdatesCallback: saveAccessories,
           ),
       'icon': Icons.place,
-      'label': 'Map',
+      'label': 'Vị trí Tag',
       'actionButton': (ctx) => RefreshAction(
             callback: () async {
               await loadLocationUpdates(null);
@@ -49,10 +58,10 @@ class _DashboardState extends State<Dashboard> {
           ),
     },
     {
-      'title': 'My Accessories',
+      'title': 'FindMy Server',
       'body': (ctx) => const KeyManagement(),
       'icon': Icons.style,
-      'label': 'Accessories',
+      'label': 'Quản lý Tag',
       'actionButton': (ctx) => const NewKeyAction(),
     },
   ];
@@ -73,8 +82,10 @@ class _DashboardState extends State<Dashboard> {
   }
 
   /// Fetch location updates for all accessories when user manually triggers refresh.
-  /// Now calls the backend POST /api/sync/now which fetches from Apple + decrypts server-side.
   Future<void> loadLocationUpdates(Accessory? accessory) async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+
     var accessoryRegistry =
         Provider.of<AccessoryRegistry>(context, listen: false);
     try {
@@ -125,6 +136,10 @@ class _DashboardState extends State<Dashboard> {
           duration: const Duration(seconds: 6),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
     }
   }
 
@@ -134,9 +149,15 @@ class _DashboardState extends State<Dashboard> {
     });
   }
 
+  void _centerMap(LatLng point) {
+    _mapController.move(point, 17);
+  }
+
   @override
   Widget build(BuildContext context) {
     final accessoryRegistry = Provider.of<AccessoryRegistry>(context);
+    final isDesktop = MediaQuery.of(context).size.width >= 720;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Trigger floating SnackBar toast once initial location fetch completes
     if (!_hasShownStartupToast && accessoryRegistry.initialLoadFinished) {
@@ -157,37 +178,367 @@ class _DashboardState extends State<Dashboard> {
       });
     }
 
-    return Scaffold(
-        appBar: AppBar(
-          title: const Text('My Accessories'),
-          actions: const <Widget>[
-            UserAvatarMenu(),
-          ],
-        ),
-        body: IndexedStack(
-          index: _selectedIndex,
+    // ==========================================
+    // 🖥️ DESKTOP LAYOUT (Apple Find My Floating UI)
+    // ==========================================
+    if (isDesktop) {
+      final activeCount = accessoryRegistry.accessories.where((a) => a.isActive).length;
+
+      return Scaffold(
+        body: Stack(
           children: [
-            _tabs[0]['body'](context),
-            _tabs[1]['body'](context),
+            // Layer 0: Fullscreen Map
+            Positioned.fill(
+              child: AccessoryMap(
+                mapController: _mapController,
+              ),
+            ),
+
+            // Layer 1: Floating Glassmorphic Top Bar
+            Positioned(
+              top: 14,
+              left: 16,
+              right: 16,
+              child: Container(
+                height: 54,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade900.withOpacity(0.92) : Colors.white.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Sidebar Toggle Button
+                    IconButton(
+                      icon: Icon(_isSidebarCollapsed ? Icons.menu : Icons.menu_open, color: Colors.teal),
+                      tooltip: _isSidebarCollapsed ? 'Mở danh sách thiết bị' : 'Thu gọn danh sách',
+                      onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+                    ),
+                    const SizedBox(width: 6),
+
+                    // App Title & Badge
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.radar, color: Colors.teal, size: 22),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'FindMy Server',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$activeCount Tag',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const Spacer(),
+
+                    // Action: Sync Now
+                    IconButton(
+                      icon: _isSyncing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal),
+                            )
+                          : const Icon(Icons.sync_rounded, color: Colors.teal),
+                      tooltip: 'Đồng bộ vị trí từ Apple iCloud',
+                      onPressed: _isSyncing ? null : () => loadLocationUpdates(null),
+                    ),
+
+                    // Action: Add Tag (+)
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, color: Colors.teal),
+                      tooltip: 'Thêm thiết bị mới',
+                      onPressed: () => const NewKeyAction().showCreationSheet(context),
+                    ),
+
+                    const SizedBox(width: 4),
+                    const VerticalDivider(indent: 12, endIndent: 12),
+                    const SizedBox(width: 4),
+
+                    // User Profile Menu
+                    const UserAvatarMenu(),
+                  ],
+                ),
+              ),
+            ),
+
+            // Layer 2: Floating Sidebar Panel (Apple Find My Style)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              top: 80,
+              left: _isSidebarCollapsed ? -410 : 16,
+              bottom: 16,
+              width: 380,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade900.withOpacity(0.95) : Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 22,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Column(
+                    children: [
+                      // Panel Header with Sub-tabs
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: isDark ? Colors.white12 : Colors.black.withOpacity(0.06),
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Vật Dụng & Thiết Bị',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '$activeCount',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
+                                  ),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  icon: const Icon(Icons.chevron_left, size: 22),
+                                  tooltip: 'Thu gọn bảng',
+                                  onPressed: () => setState(() => _isSidebarCollapsed = true),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Sub Tab Switcher Pills
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _desktopTab = 0),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 7),
+                                        decoration: BoxDecoration(
+                                          color: _desktopTab == 0
+                                              ? (isDark ? Colors.grey.shade700 : Colors.white)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow: _desktopTab == 0
+                                              ? [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.08),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 1),
+                                                  )
+                                                ]
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.location_on,
+                                              size: 15,
+                                              color: _desktopTab == 0 ? Colors.teal : Colors.grey,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              'Vị trí Tag',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: _desktopTab == 0 ? FontWeight.bold : FontWeight.normal,
+                                                color: _desktopTab == 0 ? null : Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _desktopTab = 1),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 7),
+                                        decoration: BoxDecoration(
+                                          color: _desktopTab == 1
+                                              ? (isDark ? Colors.grey.shade700 : Colors.white)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow: _desktopTab == 1
+                                              ? [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.08),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 1),
+                                                  )
+                                                ]
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.tune,
+                                              size: 15,
+                                              color: _desktopTab == 1 ? Colors.teal : Colors.grey,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              'Quản lý Tag',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: _desktopTab == 1 ? FontWeight.bold : FontWeight.normal,
+                                                color: _desktopTab == 1 ? null : Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Panel Body
+                      Expanded(
+                        child: _desktopTab == 0
+                            ? AccessoryList(
+                                loadLocationUpdates: loadLocationUpdates,
+                                saveOrderUpdatesCallback: saveAccessories,
+                                centerOnPoint: _centerMap,
+                              )
+                            : const KeyManagement(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Layer 3: Floating Restore Button (When sidebar collapsed)
+            if (_isSidebarCollapsed)
+              Positioned(
+                top: 84,
+                left: 16,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? Colors.grey.shade900 : Colors.white,
+                    foregroundColor: Colors.teal,
+                    elevation: 6,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: const Icon(Icons.view_sidebar_outlined, size: 18),
+                  label: const Text('Danh sách thiết bị', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  onPressed: () => setState(() => _isSidebarCollapsed = false),
+                ),
+              ),
           ],
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          items: _tabs
-              .map((tab) => BottomNavigationBarItem(
-                    icon: Icon(tab['icon']),
-                    label: tab['label'],
-                  ))
-              .toList(),
-          currentIndex: _selectedIndex,
-          selectedItemColor: Colors.teal,
-          unselectedItemColor: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey.shade500
-              : Colors.grey.shade600,
-          onTap: _onItemTapped,
+      );
+    }
+
+    // ==========================================
+    // 📱 MOBILE LAYOUT (Classic / Responsive)
+    // ==========================================
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _tabs[_selectedIndex]['title'] as String,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        floatingActionButton:
-            _tabs[_selectedIndex]['actionButton']?.call(context),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endDocked);
+        actions: const <Widget>[
+          UserAvatarMenu(),
+        ],
+      ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _tabs[0]['body'](context),
+          _tabs[1]['body'](context),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: _tabs
+            .map((tab) => BottomNavigationBarItem(
+                  icon: Icon(tab['icon']),
+                  label: tab['label'],
+                ))
+            .toList(),
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.teal,
+        unselectedItemColor: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+        onTap: _onItemTapped,
+      ),
+      floatingActionButton: _tabs[_selectedIndex]['actionButton']?.call(context),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
+    );
   }
 
   Future<void> saveAccessories(List<Accessory> accessories) async {
@@ -196,3 +547,4 @@ class _DashboardState extends State<Dashboard> {
     accessoryRegistry.saveOrderUpdates(accessories);
   }
 }
+

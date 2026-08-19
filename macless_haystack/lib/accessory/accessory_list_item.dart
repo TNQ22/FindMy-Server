@@ -11,7 +11,7 @@ import 'accessory_battery.dart';
 
 class AccessoryListItem extends StatefulWidget {
   final Accessory accessory;
-  final Widget? distance;
+  final String? distanceText;
   final Placemark? herePlace;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -21,7 +21,7 @@ class AccessoryListItem extends StatefulWidget {
     required this.accessory,
     required this.onTap,
     this.onLongPress,
-    this.distance,
+    this.distanceText,
     this.herePlace,
   });
 
@@ -57,35 +57,6 @@ class AccessoryListItemState extends State<AccessoryListItem> {
       color: _tileColor,
       child: ListTile(
         onTap: widget.onTap,
-        title: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                widget.accessory.name +
-                    (widget.accessory.isActive ? '' : ' (inactive)'),
-                style: TextStyle(
-                  color: widget.accessory.isActive
-                      ? Theme.of(context).colorScheme.onSurface
-                      : Theme.of(context).disabledColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 5),
-            _buildIcon(),
-          ],
-        ),
-        subtitle: Text(
-          dateString,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.grey.shade400
-                : Colors.grey.shade600,
-          ),
-        ),
-        trailing: widget.distance,
         dense: true,
         leading: GestureDetector(
           onLongPress: widget.onLongPress,
@@ -94,22 +65,74 @@ class AccessoryListItemState extends State<AccessoryListItem> {
             color: widget.accessory.color,
           ),
         ),
+        title: Text(
+          widget.accessory.name +
+              (widget.accessory.isActive ? '' : ' (inactive)'),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: widget.accessory.isActive
+                ? Theme.of(context).colorScheme.onSurface
+                : Theme.of(context).disabledColor,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          dateString,
+          style: TextStyle(
+            fontSize: 11.5,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey.shade400
+                : Colors.grey.shade600,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Fixed-width distance column (cố định độ rộng để pin luôn thẳng hàng)
+            SizedBox(
+              width: 58,
+              child: Text(
+                widget.distanceText ?? '',
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade400
+                      : Colors.grey.shade700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Fixed-width Battery icon column (luôn thẳng hàng theo trục dọc)
+            SizedBox(
+              width: 18,
+              child: Center(
+                child: _buildBatteryIcon(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildIcon() {
+  Widget _buildBatteryIcon() {
     switch (widget.accessory.lastBatteryStatus) {
       case AccessoryBatteryStatus.ok:
-        return const Icon(Icons.battery_full, color: Colors.green, size: 15);
+        return const Icon(Icons.battery_full, color: Colors.green, size: 16);
       case AccessoryBatteryStatus.medium:
-        return const Icon(Icons.battery_3_bar, color: Colors.orange, size: 15);
+        return const Icon(Icons.battery_3_bar, color: Colors.orange, size: 16);
       case AccessoryBatteryStatus.low:
-        return const Icon(Icons.battery_1_bar, color: Colors.red, size: 15);
+        return const Icon(Icons.battery_1_bar, color: Colors.red, size: 16);
       case AccessoryBatteryStatus.criticalLow:
-        return const Icon(Icons.battery_alert, color: Colors.red, size: 15);
+        return const Icon(Icons.battery_alert, color: Colors.red, size: 16);
       default:
-        return const SizedBox(width: 15);
+        return const SizedBox(width: 16);
     }
   }
 }
