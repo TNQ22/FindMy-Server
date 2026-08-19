@@ -8,7 +8,7 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
 
 ## 📸 Screenshots
 
-<details open>
+<details>
 <summary><b>🌐 Giao diện Web (Desktop) - cập nhật sau</b></summary>
 <br>
 
