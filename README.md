@@ -1,6 +1,6 @@
-# FindMy Server (v2.0.0)
+# FindMy Server (v2.0.2)
 
-Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới **Apple Find My**, được đóng gói trọn gói bằng Docker (hỗ trợ cả **x86_64** và **ARM64 / Raspberry Pi / Apple Silicon**). Hỗ trợ theo dõi vị trí các thiết bị OpenHaystack / AirTag tự chế (ESP32, NRF5x, ST17H66...) 24/7 một cách an toàn và bảo mật. Hỗ trợ đăng nhập nhiều người dùng bằng Google OAuth.
+Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới **Apple Find My**, được đóng gói trọn gói bằng Docker (hỗ trợ cả **x86_64 / amd64** và **ARM64 / Raspberry Pi / Apple Silicon**). Hỗ trợ theo dõi vị trí các thiết bị OpenHaystack / AirTag tự chế (ESP32, NRF5x, ST17H66...) 24/7 một cách an toàn, bảo mật với tính năng đăng nhập Google OAuth, hồ chứa iCloud dùng chung, vùng an toàn (Geofence) và thông báo đa kênh.
 
 ![Giao diện FindMy Server](images/dashboard_web.png)
 
@@ -8,8 +8,9 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
 
 ## 📸 Screenshots
 
-<details>
-<summary><b>🌐 Giao diện Web (Desktop)</b></summary>
+<details open>
+<summary><b>🌐 Giao diện Web (Desktop) - cập nhật sau</b></summary>
+<br>
 
 | Dashboard & Thao tác nhanh | Lịch sử di chuyển |
 | :---: | :---: |
@@ -22,11 +23,12 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
 </details>
 
 <details>
-<summary><b>📱 Giao diện Di Động (Mobile Responsive)</b></summary>
+<summary><b>📱 Giao diện Di Động (Mobile Responsive) - Cập nhật sau</b></summary>
+<br>
 
-| Dashboard Mobile | Lịch sử Mobile | Cấu hình Mobile |
-| :---: | :---: | :---: |
-| ![Dashboard Mobile](images/dashboard_mobile.png) | ![History Mobile](images/history_mobile.png) | ![Settings Mobile](images/settings_mobile.png) |
+| Dashboard Mobile | Lịch sử Mobile | Quản lý thiết bị | Cấu hình Mobile |
+| :---: | :---: | :---: | :---: |
+| ![Dashboard Mobile](images/dashboard_mobile.png) | ![History Mobile](images/history_mobile.png) | ![Accessories Mobile](images/accessories_mobile.png) | ![Settings Mobile](images/settings_mobile.png) |
 
 </details>
 
@@ -37,7 +39,7 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
 - 👥 **Hồ Chứa iCloud Dùng Chung (Shared iCloud Pool)**:
   - Thêm nhiều tài khoản Apple ID để tự động xoay vòng truy vấn vị trí, tránh bị giới hạn tần suất (rate-limit) từ Apple.
   - Hỗ trợ xác thực 2FA trực tiếp trên giao diện Web (qua Thiết bị tin cậy hoặc mã SMS).
-  - Tự động theo dõi trạng thái sống/chết của từng tài khoản Apple ID.
+  - Tự động theo dõi trạng thái hoạt động / hết hạn phiên của từng tài khoản Apple ID.
 
 - 🛡️ **Vùng An Toàn & Cảnh Báo Ra/Vào (Geofencing / Safe Zones)**:
   - Thiết lập không giới hạn các khu vực an toàn (Nhà riêng, Cơ quan, Trường học, Bãi đỗ xe...) với bán kính tùy chỉnh trực quan trên bản đồ.
@@ -62,7 +64,7 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
   - Người được chia sẻ có thể xem vị trí thời gian thực và lịch sử di chuyển mà không làm ảnh hưởng đến cấu hình gốc của thiết bị.
 
 - 🎨 **Tùy Biến Thẻ & Biểu Tượng Đa Dạng**:
-  - Kho biểu tượng phong phú (Xe hơi, Xe máy, Thú cưng, Balo, Chìa khóa, Trẻ em, Thiết bị...) cùng bảng màu đa dạng giúp phân biệt trực quan trên bản đồ.
+  - Đổi tên thẻ trực tiếp, tuỳ chọn kho biểu tượng phong phú (Xe hơi, Xe máy, Thú cưng, Balo, Chìa khóa, Trẻ em, Thiết bị...) cùng bảng màu đa dạng giúp phân biệt trực quan trên bản đồ.
 
 - 🔒 **Đăng Nhập Google OAuth & Phân Quyền (RBAC)**:
   - Đăng nhập bảo mật bằng tài khoản Google.
@@ -89,7 +91,7 @@ Tạo file `.env` trong thư mục dự án với nội dung mẫu:
 
 ```env
 # Google OAuth 2.0 (Bắt buộc để xác thực người dùng)
-# Hướng dẫn tạo: https://developers.google.com/identity/protocols/oauth2/web-server?hl=vi
+# Hướng dẫn tạo Client ID: https://developers.google.com/identity/protocols/oauth2/web-server?hl=vi
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 
 # Chu kỳ tự động lấy vị trí từ Apple (phút) - Khuyến nghị từ 15 đến 60 phút
@@ -100,6 +102,9 @@ ADMIN_EMAILS=admin@example.com
 
 # Chuỗi bí mật JWT (Hãy thay đổi thành chuỗi ngẫu nhiên dài và bảo mật)
 JWT_SECRET=your-super-secret-jwt-key-here-change-in-production
+
+# Bật/tắt log debug chi tiết (true/false)
+DEBUG_LOGS=false
 
 # (Tùy chọn) Cấu hình máy chủ SMTP để gửi Email cảnh báo
 SMTP_HOST=smtp.gmail.com
@@ -177,6 +182,17 @@ Sau khi khởi chạy thành công:
 
 ---
 
+### 4. Cập Nhật Lên Phiên Bản Mới
+
+Để cập nhật máy chủ lên phiên bản mới nhất từ Docker Hub:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+---
+
 ## 🔔 Hướng Dẫn Cấu Hình Kênh Cảnh Báo
 
 Mỗi người dùng có thể cấu hình kênh thông báo riêng tại mục **Cài đặt thông báo (Notification Settings)** trên thanh điều hướng:
@@ -190,28 +206,39 @@ Mỗi người dùng có thể cấu hình kênh thông báo riêng tại mục 
    - Vào kênh Discord của bạn > **Chỉnh sửa kênh (Edit Channel)** > **Tích hợp (Integrations)** > **Tạo Webhook (Webhooks)** > Sao chép URL Webhook.
    - Dán URL vào mục cấu hình Discord.
 
-3. **Custom Webhook (Zalo / n8n / Home Assistant)**:
+3. **Custom Webhook (Zalo OA / n8n / Home Assistant)**:
    - Cung cấp URL webhook (POST JSON). FindMy Server sẽ tự động đẩy payload dữ liệu sự kiện (`low_battery`, `geofence_alert`, `icloud_status`) để bạn dễ dàng tích hợp vào luồng tự động hóa Zalo OA, Home Assistant automation hoặc n8n.
+
+4. **Email (SMTP)**:
+   - Cấu hình SMTP trong file `.env` của máy chủ.
+   - Người dùng bật nhận thông báo qua Email để nhận email báo cáo trạng thái pin và vùng an toàn.
 
 ---
 
 ## 🛠️ Cài Đặt Thẻ Định Vị (Hardware Tag)
 
-1. Hãy truy cập mục [releases](https://github.com/dchristl/macless-haystack/releases/latest) và tải xuống tệp `generate_keys.py` cùng tệp zip firmware bạn cần (ESP32 hoặc NRF5x).
+1. Truy cập mục [Releases](https://github.com/dchristl/macless-haystack/releases/latest) để tải xuống script `generate_keys.py` cùng tệp zip firmware phù hợp (ESP32 hoặc NRF5x).
 
-2. Chạy tập lệnh `generate_keys.py` để tạo cặp khóa của bạn. (Lưu ý: cần có thư viện phụ thuộc `cryptography`. Hãy cài đặt nó bằng lệnh `pip install cryptography`).
+2. Chạy script `generate_keys.py` để tạo cặp khóa định vị. 
+Lưu ý: cần có thư viện phụ thuộc `cryptography`. Hãy cài đặt nó bằng lệnh:
+   ```bash
+   pip install cryptography
+   python generate_keys.py
+   ```
 
-3. Giải nén firmware và nạp nó vào thiết bị của bạn (xem hướng dẫn [Cài đặt firmware ESP32 với khóa của bạn](firmware/ESP32/README.md) hoặc [Cài đặt firmware NRF5x với khóa của bạn](firmware/nrf5x/README.md)).
+3. Giải nén firmware và nạp nó vào thiết bị của bạn:
+   - Xem hướng dẫn [Cài đặt firmware ESP32](firmware/ESP32/README.md)
+   - Xem hướng dẫn [Cài đặt firmware NRF5x](firmware/nrf5x/README.md)
 
-4. Đăng nhập vào giao diện Web FindMy Server và thêm thẻ bằng khóa Base64 đã tạo.
+4. Đăng nhập vào giao diện Web FindMy Server và thêm thẻ bằng khóa Base64 (`Advertisement Key`) đã tạo.
 
-###### Lưu ý: Nói chung, bất kỳ thiết bị hoặc firmware nào tương thích với OpenHaystack cũng sẽ tương thích với Macless-Haystack (ví dụ: [ST17H66](https://github.com/biemster/FindMy/tree/main/Lenze_ST17H66)). Thông thường, chỉ cần khóa quảng cáo được mã hóa Base64, bạn có thể tìm thấy nó trong tệp .keys sau khi tạo khóa
+> 💡 **Lưu ý:** Bất kỳ thiết bị hoặc firmware nào tương thích với chuẩn OpenHaystack / Apple Find My (như ESP32, nRF51/nRF52, [ST17H66](https://github.com/biemster/FindMy/tree/main/Lenze_ST17H66)...) đều hoạt động tốt với FindMy Server.
 
 ---
 
 ## 📜 Ghi Nhận (Credits)
 
-Dự án phát triển và tối ưu hóa dựa trên các mã nguồn mở:
+Dự án được phát triển và tối ưu hóa dựa trên các mã nguồn mở:
 - [OpenHaystack](https://github.com/seemoo-lab/openhaystack)
 - [FindMy.py](https://github.com/malmeloo/FindMy.py)
 - [Anisette-v3-Server](https://github.com/Dadoum/anisette-v3-server)
