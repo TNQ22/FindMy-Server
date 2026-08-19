@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:provider/provider.dart';
 import 'package:macless_haystack/accessory/accessory_model.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
@@ -53,11 +54,11 @@ class _AccessoryImportState extends State<AccessoryImport> {
           }
         } catch (e) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content:
-                    Text('Key import failed. Check if private key is correct.'),
-              ),
+            AppToast.showText(
+              context,
+              'Nhập Key thất bại. Vui lòng kiểm tra lại Private Key.',
+              icon: Icons.error_outline,
+              backgroundColor: Colors.red.shade700,
             );
           }
         }

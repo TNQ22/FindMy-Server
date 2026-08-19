@@ -68,15 +68,15 @@ class _AccessoryMapState extends State<AccessoryMap> {
 
     if (activeTagLocations.isNotEmpty) {
       if (activeTagLocations.length == 1) {
-        // Only 1 tag: zoom in closely (zoom 17.0) to match direct tag selection
+        // Only 1 tag: zoom in comfortably (zoom 17.0) so surrounding context is clear
         _mapController.move(activeTagLocations.first, 17.0);
       } else {
-        // Multiple tags: fit all active tags comfortably
+        // Multiple tags: fit all active tags across any distance without artificial minZoom clamp
         _mapController.fitCamera(CameraFit.bounds(
             bounds: LatLngBounds.fromPoints(activeTagLocations),
-            padding: const EdgeInsets.all(50),
+            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 64),
             maxZoom: 17.0,
-            minZoom: 13.0));
+            minZoom: 2.0));
       }
     } else if (hereLocation != null) {
       _mapController.move(hereLocation, 17.0);

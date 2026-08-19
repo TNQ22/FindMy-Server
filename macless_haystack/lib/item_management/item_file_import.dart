@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:provider/provider.dart';
 import 'package:macless_haystack/accessory/accessory_dto.dart';
 import 'package:macless_haystack/accessory/accessory_icon_model.dart';
@@ -105,12 +106,13 @@ class _ItemFileImportState extends State<ItemFileImport> {
                 element ? previousValue + 1 : previousValue) ??
         0;
     if (nrOfImports > 0) {
-      var snackbar = SnackBar(
-        content: Text(
-            'Successfully imported ${nrOfImports.toString()} accessories.'),
-      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(snackbar);
+        AppToast.showText(
+          context,
+          'Đã nhập thành công $nrOfImports thiết bị!',
+          icon: Icons.check_circle,
+          backgroundColor: Colors.teal.shade800,
+        );
       }
     }
   }

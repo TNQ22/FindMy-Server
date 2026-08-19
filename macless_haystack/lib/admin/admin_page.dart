@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/admin/admin_add_tag_dialog.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
@@ -128,13 +129,23 @@ class _AdminPageState extends State<AdminPage> {
 
   void _showError(String msg) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      AppToast.showText(
+        context,
+        msg,
+        icon: Icons.error_outline,
+        backgroundColor: Colors.red.shade700,
+      );
     }
   }
 
   void _showSuccess(String msg) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.teal.shade800));
+      AppToast.showText(
+        context,
+        msg,
+        icon: Icons.check_circle,
+        backgroundColor: Colors.teal.shade800,
+      );
     }
   }
 
@@ -216,110 +227,185 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Trang Quản trị'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchUsers,
-          )
-        ],
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
+
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _fetchUsers,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _users.length,
-                itemBuilder: (context, index) {
-                  final u = _users[index];
-                  final bool isAdmin = u['is_admin'] == true;
-                  return Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage: u['picture'] != null ? NetworkImage(u['picture']) : null,
-                        child: u['picture'] == null ? const Icon(Icons.person) : null,
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(child: Text(u['email'], style: const TextStyle(fontWeight: FontWeight.bold))),
-                          if (isAdmin)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(4)),
-                              child: const Text('ADMIN', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                            )
-                        ],
-                      ),
-                      subtitle: Text('Tên: ${u['name']} \nSố Tag: ${u['device_count']}'),
-                      isThreeLine: true,
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (val) {
-                          if (val == 'add_tag') {
-                            showDialog(
-                              context: context,
-                              builder: (_) => AdminAddTagDialog(userId: u['id'], userEmail: u['email']),
-                            ).then((value) {
-                              if (value == true) _fetchUsers();
-                            });
-                          } else if (val == 'delete') {
-                            _deleteUser(u['id'], u['email']);
-                          } else if (val == 'promote') {
-                            _changeRole(u['id'], true);
-                          } else if (val == 'demote') {
-                            _changeRole(u['id'], false);
-                          } else if (val == 'import') {
-                            _importTags(u['id']);
-                          } else if (val == 'share_tags') {
-                            showDialog(
-                              context: context,
-                              builder: (_) => AdminShareTagsDialog(
-                                userId: u['id'],
-                                userEmail: u['email'],
-                                allUsers: _users,
-                              ),
-                            ).then((_) => _fetchUsers());
-                          }
-                        },
-                        itemBuilder: (BuildContext context) => [
-                          const PopupMenuItem(
-                            value: 'add_tag',
-                            child: Row(children: [Icon(Icons.add_link, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Thêm Tag')]),
-                          ),
-                          const PopupMenuItem(
-                            value: 'import',
-                            child: Row(children: [Icon(Icons.file_upload, color: Colors.green, size: 20), SizedBox(width: 8), Text('Import từ File')]),
-                          ),
-                          const PopupMenuItem(
-                            value: 'share_tags',
-                            child: Row(children: [Icon(Icons.share, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Quản lý & Share Tag')]),
-                          ),
-                          if (!isAdmin)
-                            const PopupMenuItem(
-                              value: 'promote',
-                              child: Row(children: [Icon(Icons.admin_panel_settings, color: Colors.orange, size: 20), SizedBox(width: 8), Text('Thăng quyền Admin')]),
-                            ),
-                          if (isAdmin)
-                            const PopupMenuItem(
-                              value: 'demote',
-                              child: Row(children: [Icon(Icons.person, color: Colors.grey, size: 20), SizedBox(width: 8), Text('Hủy quyền Admin')]),
-                            ),
-                          if (!isAdmin)
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 20), SizedBox(width: 8), Text('Xóa')]),
-                            ),
-                        ],
-                      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? double.infinity : 760,
+          maxHeight: mediaQuery.size.height * 0.90,
+        ),
+        child: Column(
+          children: [
+            // Top Bar with Emerald Green / Teal Gradient
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade800, Colors.teal.shade600],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                  );
-                },
+                    child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Trang Quản Trị Hệ Thống',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Quản lý Người dùng, Phân quyền & Thiết bị',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    tooltip: 'Tải lại',
+                    onPressed: _fetchUsers,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    tooltip: 'Đóng',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
             ),
+
+            // Content Body
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+                  : RefreshIndicator(
+                      onRefresh: _fetchUsers,
+                      child: _users.isEmpty
+                          ? const Center(
+                              child: Text('Không có người dùng nào', style: TextStyle(color: Colors.grey)),
+                            )
+                          : ListView.builder(
+                              padding: EdgeInsets.all(isMobile ? 12 : 16),
+                              itemCount: _users.length,
+                              itemBuilder: (context, index) {
+                                final u = _users[index];
+                                final bool isAdmin = u['is_admin'] == true;
+                                return Card(
+                                  elevation: 1.5,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundImage: u['picture'] != null ? NetworkImage(u['picture']) : null,
+                                      child: u['picture'] == null ? const Icon(Icons.person) : null,
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Expanded(child: Text(u['email'], style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        if (isAdmin)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(4)),
+                                            child: const Text('ADMIN', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                          )
+                                      ],
+                                    ),
+                                    subtitle: Text('Tên: ${u['name']} \nSố Tag: ${u['device_count']}'),
+                                    isThreeLine: true,
+                                    trailing: PopupMenuButton<String>(
+                                      onSelected: (val) {
+                                        if (val == 'add_tag') {
+                                          showDialog(
+                                            context: context,
+                                            builder: (_) => AdminAddTagDialog(userId: u['id'], userEmail: u['email']),
+                                          ).then((value) {
+                                            if (value == true) _fetchUsers();
+                                          });
+                                        } else if (val == 'delete') {
+                                          _deleteUser(u['id'], u['email']);
+                                        } else if (val == 'promote') {
+                                          _changeRole(u['id'], true);
+                                        } else if (val == 'demote') {
+                                          _changeRole(u['id'], false);
+                                        } else if (val == 'import') {
+                                          _importTags(u['id']);
+                                        } else if (val == 'share_tags') {
+                                          showDialog(
+                                            context: context,
+                                            builder: (_) => AdminShareTagsDialog(
+                                              userId: u['id'],
+                                              userEmail: u['email'],
+                                              allUsers: _users,
+                                            ),
+                                          ).then((_) => _fetchUsers());
+                                        }
+                                      },
+                                      itemBuilder: (BuildContext context) => [
+                                        const PopupMenuItem(
+                                          value: 'add_tag',
+                                          child: Row(children: [Icon(Icons.add_link, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Thêm Tag')]),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'import',
+                                          child: Row(children: [Icon(Icons.file_upload, color: Colors.green, size: 20), SizedBox(width: 8), Text('Import từ File')]),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'share_tags',
+                                          child: Row(children: [Icon(Icons.share, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Quản lý & Share Tag')]),
+                                        ),
+                                        if (!isAdmin)
+                                          const PopupMenuItem(
+                                            value: 'promote',
+                                            child: Row(children: [Icon(Icons.admin_panel_settings, color: Colors.orange, size: 20), SizedBox(width: 8), Text('Thăng quyền Admin')]),
+                                          ),
+                                        if (isAdmin)
+                                          const PopupMenuItem(
+                                            value: 'demote',
+                                            child: Row(children: [Icon(Icons.person, color: Colors.grey, size: 20), SizedBox(width: 8), Text('Hủy quyền Admin')]),
+                                          ),
+                                        if (!isAdmin)
+                                          const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 20), SizedBox(width: 8), Text('Xóa')]),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -410,22 +496,31 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['message'] ?? 'Đã chia sẻ Tag thành công!')),
+          AppToast.showText(
+            context,
+            data['message'] ?? 'Đã chia sẻ Tag thành công!',
+            icon: Icons.check_circle,
+            backgroundColor: Colors.teal.shade800,
           );
         }
         _fetchUserDevices();
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lỗi khi chia sẻ Tag')),
+          AppToast.showText(
+            context,
+            'Lỗi khi chia sẻ Tag',
+            icon: Icons.error_outline,
+            backgroundColor: Colors.red.shade700,
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lỗi kết nối máy chủ')),
+        AppToast.showText(
+          context,
+          'Lỗi kết nối máy chủ',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red.shade700,
         );
       }
     }
@@ -461,22 +556,31 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
       );
       if (res.statusCode == 200) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Đã hủy chia sẻ với $targetUserEmail')),
+          AppToast.showText(
+            context,
+            'Đã hủy chia sẻ với $targetUserEmail',
+            icon: Icons.check_circle,
+            backgroundColor: Colors.teal.shade800,
           );
         }
         _fetchUserDevices();
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Hủy chia sẻ thất bại')),
+          AppToast.showText(
+            context,
+            'Hủy chia sẻ thất bại',
+            icon: Icons.error_outline,
+            backgroundColor: Colors.red.shade700,
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lỗi kết nối máy chủ')),
+        AppToast.showText(
+          context,
+          'Lỗi kết nối máy chủ',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red.shade700,
         );
       }
     }
@@ -485,19 +589,29 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
   void _showSharePicker(dynamic device) {
     final otherUsers = widget.allUsers.where((u) => u['id'] != widget.userId).toList();
     if (otherUsers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không có người dùng khác để chia sẻ')),
+      AppToast.showText(
+        context,
+        'Không có người dùng khác để chia sẻ',
+        icon: Icons.info_outline,
+        backgroundColor: Colors.amber.shade900,
       );
       return;
     }
 
     int? selectedTargetId = otherUsers.first['id'];
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
-          title: Text('Chia sẻ Tag "${device['name']}"'),
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 12 : 24,
+            vertical: isMobile ? 16 : 24,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Chia sẻ Tag "${device['name']}"', style: TextStyle(fontSize: isMobile ? 16 : 18)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,11 +655,19 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return AlertDialog(
-      title: Text('Danh sách Tag của ${widget.userEmail}'),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text('Danh sách Tag của ${widget.userEmail}', style: TextStyle(fontSize: isMobile ? 16 : 18)),
+      contentPadding: EdgeInsets.all(isMobile ? 12 : 20),
       content: SizedBox(
-        width: 520,
-        height: 420,
+        width: isMobile ? double.maxFinite : 520.0,
+        height: 420.0,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null

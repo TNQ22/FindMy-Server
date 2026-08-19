@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:universal_html/html.dart' as html;
 
@@ -140,31 +141,31 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
       );
 
       if (res.statusCode == 200 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Đã lưu cấu hình thông báo thành công!'),
-              ],
-            ),
-            backgroundColor: Color(0xFF00695C), // Colors.teal.shade800
-          ),
+        AppToast.showText(
+          context,
+          'Đã lưu cấu hình thông báo thành công!',
+          icon: Icons.check_circle,
+          backgroundColor: const Color(0xFF00695C),
+          duration: const Duration(seconds: 4),
         );
         Navigator.pop(context, true);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lưu thất bại: ${res.body}'),
-            backgroundColor: Colors.red.shade700,
-          ),
+        AppToast.showText(
+          context,
+          'Lưu thất bại: ${res.body}',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 5),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi kết nối: $e'), backgroundColor: Colors.red.shade700),
+        AppToast.showText(
+          context,
+          'Lỗi kết nối: $e',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 5),
         );
       }
     } finally {
@@ -186,36 +187,30 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
 
       final data = jsonDecode(res.body);
       if (res.statusCode == 200 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text(data['message'] ?? 'Gửi thử nghiệm thành công!')),
-              ],
-            ),
-            backgroundColor: const Color(0xFF00695C), // Colors.teal.shade800
-          ),
+        AppToast.showText(
+          context,
+          data['message'] ?? 'Gửi thử nghiệm thành công!',
+          icon: Icons.check_circle,
+          backgroundColor: const Color(0xFF00695C),
+          duration: const Duration(seconds: 4),
         );
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text(data['detail'] ?? 'Lỗi khi gửi thử nghiệm.')),
-              ],
-            ),
-            backgroundColor: Colors.red,
-          ),
+        AppToast.showText(
+          context,
+          data['detail'] ?? 'Lỗi khi gửi thử nghiệm.',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 5),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi kiểm tra: $e'), backgroundColor: Colors.red),
+        AppToast.showText(
+          context,
+          'Lỗi kiểm tra: $e',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 5),
         );
       }
     } finally {
@@ -225,16 +220,29 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
+
     return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 580, maxHeight: 680),
+        constraints: BoxConstraints(
+          maxWidth: 580,
+          maxHeight: mediaQuery.size.height * 0.9,
+        ),
         child: Column(
           children: [
             // Top Bar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Colors.teal.shade800, Colors.teal.shade600],
@@ -248,21 +256,25 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
                       color: Colors.white.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.notifications_active, color: Colors.white, size: 24),
+                    child: const Icon(Icons.notifications_active, color: Colors.white, size: 22),
                   ),
-                  const SizedBox(width: 14),
-                  const Expanded(
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Cài Đặt Thông Báo & Webhook',
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          'Cài Đặt Thông Báo',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Cấu hình nhận thông báo và cảnh báo qua đa kênh',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Cấu hình nhận thông báo qua đa kênh',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],
                     ),
@@ -314,7 +326,10 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
 
             // Bottom Actions
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 10 : 14,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -322,18 +337,21 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Hủy'),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 14 : 20,
+                        vertical: isMobile ? 10 : 12,
+                      ),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: _saving
                         ? const SizedBox(
-                            width: 18,
-                            height: 18,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.save, size: 18),

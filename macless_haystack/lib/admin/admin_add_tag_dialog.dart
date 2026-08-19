@@ -107,14 +107,23 @@ class _AdminAddTagDialogState extends State<AdminAddTagDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     IconData currentIconData = AccessoryIconModel.mapIcon(_selectedIconStr) ?? Icons.push_pin;
 
     return AlertDialog(
-      title: Text('Thêm Tag cho ${widget.userEmail}'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text('Thêm Tag cho ${widget.userEmail}', style: TextStyle(fontSize: isMobile ? 16 : 18)),
+      content: SizedBox(
+        width: isMobile ? double.maxFinite : 480.0,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             if (_error != null)
               Container(
                 padding: const EdgeInsets.all(8),
@@ -164,6 +173,7 @@ class _AdminAddTagDialogState extends State<AdminAddTagDialog> {
             ),
           ],
         ),
+      ),
       ),
       actions: [
         TextButton(

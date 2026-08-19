@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:provider/provider.dart';
 
 import 'package:macless_haystack/accessory/accessory_icon.dart';
@@ -253,8 +254,11 @@ class _ZoneMapPickerState extends State<ZoneMapPicker> {
   void _confirmSelection() {
     if (_shapeType == 'polygon') {
       if (_polygonPoints.length < 3) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vùng đa giác cần tối thiểu 3 điểm. Vui lòng chấm thêm trên bản đồ.')),
+        AppToast.showText(
+          context,
+          'Vùng đa giác cần tối thiểu 3 điểm. Vui lòng chấm thêm trên bản đồ.',
+          icon: Icons.warning_amber_rounded,
+          backgroundColor: Colors.amber.shade900,
         );
         return;
       }
@@ -915,11 +919,12 @@ class _ZoneMapPickerState extends State<ZoneMapPicker> {
                         if (_shapeType == 'circle') {
                           setState(() => _selectedLocation = tag.lastLocation!);
                         }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('📍 Đã chuyển vị trí đến thẻ "${tag.name}"'),
-                            duration: const Duration(seconds: 2),
-                          ),
+                        AppToast.showText(
+                          context,
+                          'Đã chuyển vị trí đến thẻ "${tag.name}"',
+                          icon: Icons.place,
+                          backgroundColor: Colors.teal.shade800,
+                          duration: const Duration(seconds: 3),
                         );
                       }
                     },

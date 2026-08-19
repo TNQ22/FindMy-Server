@@ -29,33 +29,51 @@ def mask_email(email: str) -> str:
     return f"{masked_name}@{domain}"
 
 def get_login_state_fast(state_json: str) -> str:
-    if not state_json or state_json.strip() == "{}" or state_json.strip() == "":
+    if not state_json or state_json.strip() in ("", "{}"):
         return "LOGGED_OUT"
-    if "REQUIRE_2FA" in state_json or "require_2fa" in state_json.lower():
-        return "REQUIRE_2FA"
     try:
         data = json.loads(state_json)
         if isinstance(data, dict):
-            st_val = data.get("login_state") if "login_state" in data else (data.get("_state") if "_state" in data else data.get("state"))
-            st_str = str(st_val) if st_val is not None else ""
+            # Check FindMy.py serialized format: data["login"]["state"]
+            login_sec = data.get("login")
+            if isinstance(login_sec, dict) and "state" in login_sec:
+                st = login_sec["state"]
+                if st == 3 or st == "3" or str(st).upper() == "LOGGED_IN":
+                    return "LOGGED_IN"
+                elif st == 1 or st == "1" or str(st).upper() == "REQUIRE_2FA":
+                    return "REQUIRE_2FA"
+                elif st == 2 or st == "2" or str(st).upper() == "AUTHENTICATED":
+                    return "AUTHENTICATED"
+                elif st == 0 or st == "0" or str(st).upper() == "LOGGED_OUT":
+                    return "LOGGED_OUT"
 
-            if st_val == 1 or st_str == "1" or "REQUIRE_2FA" in st_str or "require_2fa" in st_str.lower():
-                return "REQUIRE_2FA"
-            if st_val == 0 or st_str == "0" or "LOGGED_OUT" in st_str or "logged_out" in st_str.lower():
-                return "LOGGED_OUT"
+            # Check direct top-level state fields
+            st_val = data.get("login_state") or data.get("_state") or data.get("state")
+            if st_val is not None:
+                st_str = str(st_val).upper()
+                if "LOGGED_IN" in st_str or st_val == 3:
+                    return "LOGGED_IN"
+                if "REQUIRE_2FA" in st_str or st_val == 1:
+                    return "REQUIRE_2FA"
+                if "AUTHENTICATED" in st_str or st_val == 2:
+                    return "AUTHENTICATED"
+                if "LOGGED_OUT" in st_str or st_val == 0:
+                    return "LOGGED_OUT"
 
-            # MobileMe authentication tokens are ONLY generated after 2FA is verified
+            # Check for presence of MobileMe authentication data
+            login_data = login_sec.get("data", {}) if isinstance(login_sec, dict) else {}
+            if isinstance(login_data, dict):
+                if "mobileme_data" in login_data or "searchPartyToken" in str(login_data):
+                    return "LOGGED_IN"
+
             if "mobileme_auth" in data or "trust_token" in data or "mobileme" in data:
                 return "LOGGED_IN"
-
-            if st_val == 2 or st_str == "2" or "LOGGED_IN" in st_str or "logged_in" in st_str.lower():
-                return "LOGGED_IN"
-
-            # If account is present without MobileMe tokens, it is pending 2FA
-            if "account_id" in data or "apple_id" in data:
-                return "REQUIRE_2FA"
     except Exception:
         pass
+
+    if "REQUIRE_2FA" in state_json or "require_2fa" in state_json.lower():
+        return "REQUIRE_2FA"
+
     return "LOGGED_OUT"
 
 @router.get("/status", response_model=ICloudStatusResponse)
@@ -71,9 +89,6 @@ async def get_icloud_status(
         all_accounts = []
 
     account_items: list[ICloudAccountItem] = []
-    primary_apple_id = None
-    primary_state = "LOGGED_OUT"
-    primary_active = False
 
     for acc in all_accounts:
         is_owner = (acc.user_id == current_user.id)
@@ -84,11 +99,6 @@ async def get_icloud_status(
             login_state = st_obj.name if hasattr(st_obj, 'name') else str(st_obj)
         except Exception:
             login_state = get_login_state_fast(acc.state_json)
-
-        if is_owner and not primary_apple_id:
-            primary_apple_id = acc.apple_id
-            primary_state = login_state
-            primary_active = acc.is_active
 
         account_items.append(
             ICloudAccountItem(
@@ -103,10 +113,26 @@ async def get_icloud_status(
             )
         )
 
-    if not primary_apple_id and account_items:
-        primary_apple_id = account_items[0].masked_apple_id
-        primary_state = account_items[0].login_state
-        primary_active = account_items[0].is_active
+    # Determine primary status accurately across the pool
+    # 1. Prefer user's active & LOGGED_IN account
+    # 2. Otherwise any active & LOGGED_IN account in pool
+    # 3. Otherwise any active account owned by user
+    # 4. Fallback to first available account
+    primary_apple_id = None
+    primary_state = "LOGGED_OUT"
+    primary_active = False
+
+    user_logged_in = next((a for a in account_items if a.is_owner and a.is_active and a.login_state == "LOGGED_IN"), None)
+    pool_logged_in = next((a for a in account_items if a.is_active and a.login_state == "LOGGED_IN"), None)
+    user_any = next((a for a in account_items if a.is_owner and a.is_active), None)
+    req_2fa_acc = next((a for a in account_items if a.is_active and "REQUIRE_2FA" in a.login_state), None)
+
+    best_match = user_logged_in or pool_logged_in or user_any or req_2fa_acc or (account_items[0] if account_items else None)
+
+    if best_match:
+        primary_apple_id = best_match.apple_id
+        primary_state = best_match.login_state
+        primary_active = best_match.is_active
 
     return ICloudStatusResponse(
         apple_id=primary_apple_id,

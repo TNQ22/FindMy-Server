@@ -32,7 +32,13 @@ async def verify_google_token(token: str) -> dict:
     try:
         # If GOOGLE_CLIENT_ID is set, verify against it
         target_client_id = settings.GOOGLE_CLIENT_ID if settings.GOOGLE_CLIENT_ID else None
-        id_info = id_token.verify_oauth2_token(token, google_requests.Request(), target_client_id)
+        # Allow 60s clock skew tolerance for server/container clock drift
+        id_info = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            audience=target_client_id,
+            clock_skew_in_seconds=60,
+        )
         return id_info
     except Exception as e:
         raise HTTPException(

@@ -41,88 +41,111 @@ class _ZoneAlertsDialogState extends State<ZoneAlertsDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        width: 600,
-        constraints: const BoxConstraints(maxHeight: 650),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.notifications_active_outlined, color: Colors.red, size: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Nhật ký Cảnh báo Vùng',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Lịch sử các sự kiện ra/vào khu vực an toàn',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                Consumer<ZoneRegistry>(
-                  builder: (context, registry, _) {
-                    if (registry.alerts.isEmpty) return const SizedBox.shrink();
-                    return IconButton(
-                      tooltip: 'Xóa toàn bộ lịch sử',
-                      icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Xác nhận xóa'),
-                            content: const Text('Bạn có chắc chắn muốn xóa toàn bộ lịch sử cảnh báo không?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Hủy'),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                ),
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Xóa tất cả'),
-                              ),
-                            ],
-                          ),
-                        );
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
 
-                        if (confirm == true && context.mounted) {
-                          await registry.clearAllAlerts();
-                        }
-                      },
-                    );
-                  },
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? double.infinity : 600,
+          maxHeight: mediaQuery.size.height * 0.88,
+        ),
+        child: Column(
+          children: [
+            // Top Bar with Emerald Green / Teal Gradient
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade800, Colors.teal.shade600],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.notifications_active_outlined, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Nhật Ký Cảnh Báo Vùng',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Lịch sử các sự kiện ra/vào khu vực an toàn',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Consumer<ZoneRegistry>(
+                    builder: (context, registry, _) {
+                      if (registry.alerts.isEmpty) return const SizedBox.shrink();
+                      return IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.all(6),
+                        tooltip: 'Xóa toàn bộ lịch sử',
+                        icon: const Icon(Icons.delete_sweep_outlined, color: Colors.white),
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Xác nhận xóa'),
+                              content: const Text('Bạn có chắc chắn muốn xóa toàn bộ lịch sử cảnh báo không?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Hủy'),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Xóa tất cả'),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm == true && context.mounted) {
+                            await registry.clearAllAlerts();
+                          }
+                        },
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
 
             // Content
             Expanded(
@@ -159,7 +182,7 @@ class _ZoneAlertsDialogState extends State<ZoneAlertsDialog> {
                           itemBuilder: (context, index) {
                             final item = alerts[index];
                             final isExit = item.alertType.toUpperCase() == 'EXIT';
-                            final timeStr = DateFormat('dd/MM/yyyy HH:mm:ss').format(item.createdAt);
+                            final timeStr = DateFormat('dd/MM/yyyy - HH:mm:ss').format(item.createdAt);
 
                             return Container(
                               padding: const EdgeInsets.all(12),
@@ -177,7 +200,7 @@ class _ZoneAlertsDialogState extends State<ZoneAlertsDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.all(8),
+                                    padding: const EdgeInsets.all(7),
                                     decoration: BoxDecoration(
                                       color: isExit ? Colors.red : Colors.green,
                                       shape: BoxShape.circle,
@@ -185,23 +208,25 @@ class _ZoneAlertsDialogState extends State<ZoneAlertsDialog> {
                                     child: Icon(
                                       isExit ? Icons.exit_to_app : Icons.login,
                                       color: Colors.white,
-                                      size: 16,
+                                      size: 15,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Row(
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 6,
+                                          runSpacing: 4,
                                           children: [
                                             Text(
                                               item.deviceName,
                                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                             ),
-                                            const SizedBox(width: 8),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               decoration: BoxDecoration(
                                                 color: isExit ? Colors.red.shade100 : Colors.green.shade100,
                                                 borderRadius: BorderRadius.circular(6),
@@ -219,7 +244,7 @@ class _ZoneAlertsDialogState extends State<ZoneAlertsDialog> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          'Khu vực: ${item.zoneName} • Khoảng cách: ${item.distance.toStringAsFixed(1)} m',
+                                          'Khu vực: ${item.zoneName} • Cách: ${item.distance.toStringAsFixed(1)} m',
                                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                                         ),
                                         const SizedBox(height: 2),
@@ -230,17 +255,29 @@ class _ZoneAlertsDialogState extends State<ZoneAlertsDialog> {
                                       ],
                                     ),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.map_outlined, size: 20, color: Colors.teal),
-                                    tooltip: 'Xem trên Google Maps',
-                                    onPressed: () => _openMap(item.latitude, item.longitude),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
-                                    tooltip: 'Xóa bản ghi này',
-                                    onPressed: () async {
-                                      await registry.deleteAlert(item.id);
-                                    },
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        icon: const Icon(Icons.map_outlined, size: 18, color: Colors.teal),
+                                        tooltip: 'Xem trên Google Maps',
+                                        onPressed: () => _openMap(item.latitude, item.longitude),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
+                                        tooltip: 'Xóa bản ghi này',
+                                        onPressed: () async {
+                                          await registry.deleteAlert(item.id);
+                                        },
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

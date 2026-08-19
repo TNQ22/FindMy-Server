@@ -52,7 +52,9 @@ async def restore_apple_account(state_json: str | None) -> AsyncAppleAccount:
     if state_json and state_json.strip() and state_json != "{}":
         try:
             state_dict = json.loads(state_json)
-            return AsyncAppleAccount.from_json(state_dict)
+            account = AsyncAppleAccount.from_json(state_dict)
+            account._anisette = anisette
+            return account
         except Exception as e:
             logger.warning(f"Failed to restore Apple account state: {e}")
     return AsyncAppleAccount(anisette=anisette)

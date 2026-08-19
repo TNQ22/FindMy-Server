@@ -155,23 +155,30 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
       },
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
+        final isMobile = MediaQuery.of(context).size.width < 500;
         return ScaleTransition(
           scale: curve,
-          alignment: const Alignment(0.9, -0.9), // Top-right popup anchor
+          alignment: isMobile ? Alignment.topCenter : const Alignment(0.9, -0.9), // Top-right popup anchor
           child: StatefulBuilder(
             builder: (dialogContext, setDialogState) {
               bool showLocation = Settings.getValue<bool>(locationAccessWantedKey, defaultValue: true)!;
 
               return AlertDialog(
-                alignment: Alignment.topRight,
-                insetPadding: const EdgeInsets.only(top: 60, right: 16),
+                alignment: isMobile ? Alignment.topCenter : Alignment.topRight,
+                insetPadding: EdgeInsets.only(
+                  top: 60,
+                  right: isMobile ? 12 : 16,
+                  left: isMobile ? 12 : 0,
+                  bottom: 24,
+                ),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                contentPadding: const EdgeInsets.all(20),
+                contentPadding: EdgeInsets.all(isMobile ? 16 : 20),
                 content: SizedBox(
-                  width: 330,
+                  width: isMobile ? double.maxFinite : 330.0,
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // Avatar Header
                         Row(
@@ -314,11 +321,8 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                           },
                         ),
 
-
-
-                        const SizedBox(height: 8),
-
                         if (_isAdmin) ...[
+                          const SizedBox(height: 8),
                           ListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
@@ -335,9 +339,9 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             trailing: const Icon(Icons.chevron_right, size: 18),
                             onTap: () async {
                               Navigator.pop(ctx);
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const AdminPage()),
+                              await showDialog(
+                                context: context,
+                                builder: (context) => const AdminPage(),
                               );
                               // Refresh devices automatically after closing Admin Page
                               if (context.mounted) {

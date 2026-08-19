@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:provider/provider.dart';
 
 import 'package:macless_haystack/zones/zone_model.dart';
@@ -30,8 +31,11 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
       builder: (ctx) => const ZoneFormDialog(),
     );
     if (created == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã tạo khu vực an toàn mới thành công!')),
+      AppToast.showText(
+        context,
+        'Đã tạo khu vực an toàn mới thành công!',
+        icon: Icons.check_circle,
+        backgroundColor: Colors.teal.shade800,
       );
     }
   }
@@ -42,8 +46,11 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
       builder: (ctx) => ZoneFormDialog(zone: zone),
     );
     if (updated == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã cập nhật khu vực an toàn thành công!')),
+      AppToast.showText(
+        context,
+        'Đã cập nhật khu vực an toàn thành công!',
+        icon: Icons.check_circle,
+        backgroundColor: Colors.teal.shade800,
       );
     }
   }
@@ -58,111 +65,167 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
 
     return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        width: 680,
-        constraints: const BoxConstraints(maxHeight: 700),
-        padding: const EdgeInsets.all(24),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? double.infinity : 680,
+          maxHeight: mediaQuery.size.height * 0.90,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.withOpacity(0.12),
-                    shape: BoxShape.circle,
+            // Top Bar with Emerald Green / Teal Gradient
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade800, Colors.teal.shade600],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.shield_outlined, color: Colors.white, size: 22),
                   ),
-                  child: const Icon(Icons.shield_outlined, color: Colors.teal, size: 26),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Khu vực Cảnh báo (Safe Zones)',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Quản lý ranh giới an toàn và nhận cảnh báo khi thẻ vượt rào',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Action Toolbar (Show on map toggle, Alerts button, Add Zone button)
-            Consumer<ZoneRegistry>(
-              builder: (context, registry, _) {
-                return Row(
-                  children: [
-                    // Toggle Map Overlay
-                    Row(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Switch(
-                          value: registry.showZonesOnMap,
-                          activeColor: Colors.teal,
-                          onChanged: (val) => registry.toggleShowZonesOnMap(val),
+                        Text(
+                          'Khu Vực Cảnh Báo (Safe Zones)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 4),
-                        const Text('Hiện trên bản đồ', style: TextStyle(fontSize: 13)),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Ranh giới an toàn & cảnh báo thẻ ra vào vùng',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
                       ],
                     ),
-                    const Spacer(),
-
-                    // Alerts History Button
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: registry.totalAlerts > 0 ? Colors.red.shade700 : Colors.grey.shade700,
-                        side: BorderSide(
-                          color: registry.totalAlerts > 0 ? Colors.red.shade300 : Colors.grey.shade300,
-                        ),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: Icon(
-                        registry.totalAlerts > 0 ? Icons.notifications_active : Icons.history,
-                        size: 16,
-                        color: registry.totalAlerts > 0 ? Colors.red : null,
-                      ),
-                      label: Text(
-                        registry.totalAlerts > 0 ? 'Nhật ký (${registry.totalAlerts})' : 'Nhật ký',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      onPressed: _openAlertsHistory,
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Add Zone Button
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm Khu vực', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      onPressed: _openCreateZone,
-                    ),
-                  ],
-                );
-              },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
+
+            // Dialog Content Body
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 12 : 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Action Toolbar
+                    Consumer<ZoneRegistry>(
+                      builder: (context, registry, _) {
+                        final switchWidget = Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Switch(
+                              value: registry.showZonesOnMap,
+                              activeColor: Colors.teal,
+                              onChanged: (val) => registry.toggleShowZonesOnMap(val),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text('Hiện trên bản đồ', style: TextStyle(fontSize: 13)),
+                          ],
+                        );
+
+                        final actionButtons = Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Alerts History Button
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                foregroundColor: registry.totalAlerts > 0 ? Colors.red.shade700 : Colors.grey.shade700,
+                                side: BorderSide(
+                                  color: registry.totalAlerts > 0 ? Colors.red.shade300 : Colors.grey.shade300,
+                                ),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: Icon(
+                                registry.totalAlerts > 0 ? Icons.notifications_active : Icons.history,
+                                size: 16,
+                                color: registry.totalAlerts > 0 ? Colors.red : null,
+                              ),
+                              label: Text(
+                                registry.totalAlerts > 0 ? 'Nhật ký (${registry.totalAlerts})' : 'Nhật ký',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              onPressed: _openAlertsHistory,
+                            ),
+                            const SizedBox(width: 8),
+
+                            // Add Zone Button
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Thêm Khu vực', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              onPressed: _openCreateZone,
+                            ),
+                          ],
+                        );
+
+                        return LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth < 450) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  switchWidget,
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: actionButtons,
+                                  ),
+                                ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                switchWidget,
+                                const Spacer(),
+                                actionButtons,
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+            const SizedBox(height: 10),
             const Divider(height: 1),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // Zone List
             Expanded(
@@ -214,7 +277,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                           : '${zone.radius.toInt()} m';
 
                       return Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.grey.shade900 : Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -235,9 +298,10 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                           children: [
                             // Zone Title Row
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(7),
                                   decoration: BoxDecoration(
                                     color: zone.isActive ? Colors.teal.shade50 : Colors.grey.shade100,
                                     shape: BoxShape.circle,
@@ -245,7 +309,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                   child: Icon(
                                     Icons.shield,
                                     color: zone.isActive ? Colors.teal : Colors.grey,
-                                    size: 18,
+                                    size: 17,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -253,13 +317,15 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Row(
+                                      Wrap(
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        spacing: 6,
+                                        runSpacing: 4,
                                         children: [
                                           Text(
                                             zone.name,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                           ),
-                                          const SizedBox(width: 8),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
@@ -275,7 +341,6 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(width: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
@@ -303,45 +368,58 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                     ],
                                   ),
                                 ),
-                                // Focus on map button
-                                IconButton(
-                                  icon: const Icon(Icons.center_focus_strong, size: 20, color: Colors.teal),
-                                  tooltip: 'Xem vị trí trên bản đồ',
-                                  onPressed: () {
-                                    registry.focusZone(zone);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                // Edit button
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.teal),
-                                  tooltip: 'Chỉnh sửa',
-                                  onPressed: () => _openEditZone(zone),
-                                ),
-                                // Delete button
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                                  tooltip: 'Xóa khu vực',
-                                  onPressed: () async {
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Xác nhận xóa'),
-                                        content: Text('Bạn có chắc chắn muốn xóa khu vực "${zone.name}" không?'),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                                            onPressed: () => Navigator.pop(ctx, true),
-                                            child: const Text('Xóa'),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(),
+                                      icon: const Icon(Icons.center_focus_strong, size: 18, color: Colors.teal),
+                                      tooltip: 'Xem vị trí trên bản đồ',
+                                      onPressed: () {
+                                        registry.focusZone(zone);
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                    const SizedBox(width: 2),
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(),
+                                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.teal),
+                                      tooltip: 'Chỉnh sửa',
+                                      onPressed: () => _openEditZone(zone),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(),
+                                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                      tooltip: 'Xóa khu vực',
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Xác nhận xóa'),
+                                            content: Text('Bạn có chắc chắn muốn xóa khu vực "${zone.name}" không?'),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                                onPressed: () => Navigator.pop(ctx, true),
+                                                child: const Text('Xóa'),
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirm == true) {
-                                      await registry.deleteZone(zone.id);
-                                    }
-                                  },
+                                        );
+                                        if (confirm == true) {
+                                          await registry.deleteZone(zone.id);
+                                        }
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -468,6 +546,10 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                     },
                   );
                 },
+              ),
+            ),
+                  ],
+                ),
               ),
             ),
           ],

@@ -274,22 +274,83 @@ class _ICloudManagementDialogState extends State<ICloudManagementDialog> {
   @override
   Widget build(BuildContext context) {
     bool isRequire2FA = _loginState.contains("REQUIRE_2FA");
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
 
-    return AlertDialog(
-      title: const Row(
-        children: [
-          Icon(Icons.cloud_sync, color: Colors.teal),
-          SizedBox(width: 8),
-          Text('Shared iCloud'),
-        ],
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
       ),
-      content: SizedBox(
-        width: 480,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 500,
+          maxHeight: mediaQuery.size.height * 0.88,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top Bar with Emerald Green / Teal Gradient
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade800, Colors.teal.shade600],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.cloud_sync, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quản Lý Shared iCloud',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Tự động tải và đồng bộ vị trí thiết bị FindMy',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Flexible(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 12),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
               if (_loading) const LinearProgressIndicator(),
               if (_statusMessage != null) ...[
                 const SizedBox(height: 8),
@@ -511,12 +572,10 @@ class _ICloudManagementDialogState extends State<ICloudManagementDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Đóng'),
-        ),
-      ],
+    ),
+  ],
+),
+      ),
     );
   }
 }

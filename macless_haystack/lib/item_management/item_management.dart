@@ -31,7 +31,7 @@ class KeyManagement extends StatelessWidget {
             children: accessories.map((accessory) {
               String lastSeen = accessory.datePublished != null &&
                       accessory.datePublished != DateTime(1970)
-                  ? DateFormat('HH:mm - dd/MM/yyyy')
+                  ? DateFormat('dd/MM/yyyy - HH:mm')
                       .format(accessory.datePublished!)
                   : 'Never';
               return Material(

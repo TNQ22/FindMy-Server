@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:logger/logger.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:macless_haystack/item_management/refresh_action.dart';
 import 'package:provider/provider.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
@@ -85,64 +86,43 @@ class _DashboardState extends State<Dashboard> {
       String loginState = (statusData['login_state'] ?? 'LOGGED_OUT').toString();
       List accounts = (statusData['accounts'] as List?) ?? [];
       var activeAccounts = accounts.where((a) => a['is_active'] == true).toList();
+      bool hasLoggedInAccount = activeAccounts.any((a) => (a['login_state'] ?? '').toString() == 'LOGGED_IN');
 
-      if (loginState == 'REQUIRE_2FA' || loginState == 'LoginState.REQUIRE_2FA') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.amber.shade900,
-            content: const Text(
-              '⚠️ Tài khoản iCloud cần xác thực 2FA. Vui lòng mở Shared iCloud để xác thực!',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
+      if (!hasLoggedInAccount && activeAccounts.isNotEmpty && activeAccounts.every((a) => (a['login_state'] ?? '').toString().contains('REQUIRE_2FA'))) {
+        AppToast.showText(
+          context,
+          '⚠️ Tài khoản iCloud cần xác thực 2FA. Vui lòng mở Shared iCloud để xác thực!',
+          backgroundColor: Colors.amber.shade900,
+          duration: const Duration(seconds: 5),
         );
-      } else if (loginState == 'LOGGED_OUT' || activeAccounts.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.amber.shade900,
-            content: const Text(
-              '⚠️ Chưa có tài khoản iCloud khả dụng. Vui lòng thêm tài khoản!',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
+      } else if (!hasLoggedInAccount && (loginState == 'LOGGED_OUT' || activeAccounts.isEmpty)) {
+        AppToast.showText(
+          context,
+          '⚠️ Chưa có tài khoản iCloud khả dụng. Vui lòng thêm tài khoản!',
+          backgroundColor: Colors.amber.shade900,
+          duration: const Duration(seconds: 5),
         );
       } else {
         final newCount = result.newReports;
         final updated = result.updatedDevices;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.teal.shade700,
-            content: Row(
-              children: [
-                const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    newCount > 0
-                        ? 'Đã cập nhật vị trí: $newCount báo cáo mới${updated.isNotEmpty ? " cho ${updated.join(", ")}" : ""}'
-                        : 'Vị trí đã được đồng bộ (không có dữ liệu mới)',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        AppToast.showText(
+          context,
+          newCount > 0
+              ? 'Đã cập nhật vị trí: $newCount báo cáo mới${updated.isNotEmpty ? " cho ${updated.join(", ")}" : ""}'
+              : 'Vị trí đã được đồng bộ (không có dữ liệu mới)',
+          backgroundColor: Colors.teal.shade700,
+          icon: Icons.refresh_rounded,
+          duration: const Duration(seconds: 4),
         );
       }
     } catch (e, stacktrace) {
       logger.e('Error on fetching', error: e, stackTrace: stacktrace);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            content: Text(
-              'Lỗi đồng bộ dữ liệu. Thử lại sau. Lỗi: ${e.toString()}',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onError,
-              ),
-            ),
-          ),
+        AppToast.showText(
+          context,
+          'Lỗi đồng bộ dữ liệu. Thử lại sau. Lỗi: ${e.toString()}',
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 6),
         );
       }
     }
@@ -165,24 +145,12 @@ class _DashboardState extends State<Dashboard> {
         if (mounted) {
           final count = accessoryRegistry.accessories.where((a) => a.isActive).length;
           if (count > 0) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                duration: const Duration(seconds: 4),
-                backgroundColor: Colors.teal.shade700,
-                content: Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Đã nạp và cập nhật vị trí mới nhất cho $count thiết bị!',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            AppToast.showText(
+              context,
+              'Đã nạp và cập nhật vị trí mới nhất cho $count thiết bị!',
+              backgroundColor: Colors.teal.shade700,
+              icon: Icons.check_circle_rounded,
+              duration: const Duration(seconds: 4),
             );
           }
         }

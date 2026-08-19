@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:http/http.dart' as http;
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:macless_haystack/accessory/accessory_model.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
@@ -147,16 +148,22 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
     if (_useCustomEmail || _availableUsers.isEmpty) {
       targetEmail = _customEmailController.text.trim();
       if (targetEmail.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng nhập email người thân muốn chia sẻ')),
+        AppToast.showText(
+          context,
+          'Vui lòng nhập email người thân muốn chia sẻ',
+          icon: Icons.warning_amber_rounded,
+          backgroundColor: Colors.amber.shade900,
         );
         return;
       }
     } else {
       targetId = _selectedUserId;
       if (targetId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng chọn người dùng để chia sẻ')),
+        AppToast.showText(
+          context,
+          'Vui lòng chọn người dùng để chia sẻ',
+          icon: Icons.warning_amber_rounded,
+          backgroundColor: Colors.amber.shade900,
         );
         return;
       }
@@ -178,29 +185,32 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
       final data = jsonDecode(res.body);
       if (res.statusCode == 200) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['message'] ?? 'Đã chia sẻ thiết bị thành công!'),
-              backgroundColor: Colors.teal.shade800,
-            ),
+          AppToast.showText(
+            context,
+            data['message'] ?? 'Đã chia sẻ thiết bị thành công!',
+            icon: Icons.check_circle,
+            backgroundColor: Colors.teal.shade800,
           );
           _customEmailController.clear();
         }
         await _fetchData();
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['detail'] ?? 'Chia sẻ thiết bị thất bại'),
-              backgroundColor: Colors.redAccent,
-            ),
+          AppToast.showText(
+            context,
+            data['detail'] ?? 'Chia sẻ thiết bị thất bại',
+            icon: Icons.error_outline,
+            backgroundColor: Colors.redAccent,
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.redAccent),
+        AppToast.showText(
+          context,
+          'Lỗi: $e',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.redAccent,
         );
       }
     } finally {
@@ -240,22 +250,31 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
 
       if (res.statusCode == 200) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Đã hủy chia sẻ với $email')),
+          AppToast.showText(
+            context,
+            'Đã hủy chia sẻ với $email',
+            icon: Icons.check_circle,
+            backgroundColor: Colors.teal.shade800,
           );
         }
         await _fetchData();
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Hủy chia sẻ thất bại'), backgroundColor: Colors.redAccent),
+          AppToast.showText(
+            context,
+            'Hủy chia sẻ thất bại',
+            icon: Icons.error_outline,
+            backgroundColor: Colors.redAccent,
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi kết nối: $e'), backgroundColor: Colors.redAccent),
+        AppToast.showText(
+          context,
+          'Lỗi kết nối: $e',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.redAccent,
         );
       }
     } finally {
@@ -265,220 +284,327 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      title: Row(
-        children: [
-          const Icon(Icons.share, color: Colors.teal),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Chia sẻ "${widget.accessory.name}"',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 20),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
+
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
       ),
-      content: SizedBox(
-        width: 480,
-        child: _loading
-            ? const SizedBox(
-                height: 180,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : _errorMessage != null
-                ? SizedBox(
-                    height: 180,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Thử lại'),
-                            onPressed: _fetchData,
-                          ),
-                        ],
-                      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 500,
+          maxHeight: mediaQuery.size.height * 0.88,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top Bar with Emerald Green / Teal Gradient
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade800, Colors.teal.shade600],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                  )
-                : SingleChildScrollView(
+                    child: const Icon(Icons.share, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Text(
+                          'Chia Sẻ "${widget.accessory.name}"',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
                         const Text(
-                          'Chia sẻ vị trí Tag này cho người thân có tài khoản trên hệ thống FindMy:',
-                          style: TextStyle(fontSize: 13, color: Colors.grey),
+                          'Chia sẻ quyền theo dõi vị trí cho người thân',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
                         ),
-                        const SizedBox(height: 16),
-
-                        // Option to toggle between dropdown and manual email
-                        if (_availableUsers.isNotEmpty) ...[
-                          Row(
-                            children: [
-                              ChoiceChip(
-                                label: const Text('Chọn tài khoản'),
-                                selected: !_useCustomEmail,
-                                onSelected: (sel) {
-                                  if (sel) setState(() => _useCustomEmail = false);
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              ChoiceChip(
-                                label: const Text('Nhập Email khác'),
-                                selected: _useCustomEmail,
-                                onSelected: (sel) {
-                                  if (sel) setState(() => _useCustomEmail = true);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-
-                        if (!_useCustomEmail && _availableUsers.isNotEmpty) ...[
-                          DropdownButtonFormField<int>(
-                            value: _selectedUserId,
-                            decoration: const InputDecoration(
-                              labelText: 'Người thân',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            items: _availableUsers.map<DropdownMenuItem<int>>((u) {
-                              return DropdownMenuItem<int>(
-                                value: u['id'],
-                                child: Text('${u['email']} (${u['name'] ?? 'User'})'),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _selectedUserId = val);
-                              }
-                            },
-                          ),
-                        ] else ...[
-                          TextField(
-                            controller: _customEmailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'Email người thân',
-                              hintText: 'nguoithan@gmail.com',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              prefixIcon: Icon(Icons.email_outlined),
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 14),
-
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            onPressed: _submitting ? null : _shareDevice,
-                            icon: _submitting
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : const Icon(Icons.person_add, size: 18),
-                            label: const Text('Chia sẻ ngay'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.teal,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 18),
-                        const Divider(),
-                        const SizedBox(height: 8),
-
-                        Row(
-                          children: [
-                            const Icon(Icons.people_outline, size: 18, color: Colors.teal),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Đang chia sẻ với (${_sharedUsers.length})',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-
-                        if (_sharedUsers.isEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withAlpha(25),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'Tag này chưa được chia sẻ với ai.',
-                                style: TextStyle(color: Colors.grey, fontSize: 13),
-                              ),
-                            ),
-                          )
-                        else
-                          Column(
-                            children: _sharedUsers.map<Widget>((su) {
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.grey.withAlpha(50)),
-                                ),
-                                child: ListTile(
-                                  dense: true,
-                                  leading: CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: Colors.teal.shade100,
-                                    child: Text(
-                                      (su['name'] != null && su['name'].toString().isNotEmpty)
-                                          ? su['name'].toString().substring(0, 1).toUpperCase()
-                                          : 'U',
-                                      style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    su['email'] ?? '',
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                  ),
-                                  subtitle: su['name'] != null && su['name'].toString().isNotEmpty
-                                      ? Text(su['name'], style: const TextStyle(fontSize: 11))
-                                      : null,
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                    tooltip: 'Dừng chia sẻ',
-                                    onPressed: _submitting ? null : () => _unshareDevice(su['device_id'], su['email']),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
                       ],
                     ),
                   ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Đóng'),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Sub Tab Bar (Giống tab con trong cài đặt thông báo)
+            Container(
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.35),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _useCustomEmail = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: !_useCustomEmail ? Colors.teal : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.people_alt_outlined,
+                              size: 18,
+                              color: !_useCustomEmail ? Colors.teal : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Chọn tài khoản',
+                              style: TextStyle(
+                                color: !_useCustomEmail ? Colors.teal : Colors.grey.shade600,
+                                fontWeight: !_useCustomEmail ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _useCustomEmail = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: _useCustomEmail ? Colors.teal : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.alternate_email,
+                              size: 18,
+                              color: _useCustomEmail ? Colors.teal : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Nhập Email khác',
+                              style: TextStyle(
+                                color: _useCustomEmail ? Colors.teal : Colors.grey.shade600,
+                                fontWeight: _useCustomEmail ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Flexible(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 14 : 20,
+                  vertical: 14,
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        height: 180,
+                        child: Center(child: CircularProgressIndicator(color: Colors.teal)),
+                      )
+                    : _errorMessage != null
+                        ? SizedBox(
+                            height: 180,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text('Thử lại'),
+                                    onPressed: _fetchData,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Chia sẻ vị trí Tag này cho tài khoản khác trên hệ thống FindMy:',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                                ),
+                                const SizedBox(height: 14),
+
+                                if (!_useCustomEmail && _availableUsers.isNotEmpty) ...[
+                                  DropdownButtonFormField<int>(
+                                    value: _selectedUserId,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Chia sẻ với',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                    items: _availableUsers.map<DropdownMenuItem<int>>((u) {
+                                      return DropdownMenuItem<int>(
+                                        value: u['id'],
+                                        child: Text('${u['email']} (${u['name'] ?? 'User'})'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() => _selectedUserId = val);
+                                      }
+                                    },
+                                  ),
+                                ] else ...[
+                                  TextField(
+                                    controller: _customEmailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Chia sẻ với (Email)',
+                                      hintText: 'nguoidung@gmail.com',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      prefixIcon: Icon(Icons.email_outlined),
+                                    ),
+                                  ),
+                                ],
+
+                                const SizedBox(height: 14),
+
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _submitting ? null : _shareDevice,
+                                    icon: _submitting
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : const Icon(Icons.person_add, size: 18),
+                                    label: const Text('Chia sẻ ngay'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 16),
+                                const Divider(),
+                                const SizedBox(height: 8),
+
+                                Row(
+                                  children: [
+                                    const Icon(Icons.people_outline, size: 18, color: Colors.teal),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Đang chia sẻ với (${_sharedUsers.length})',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+
+                                if (_sharedUsers.isEmpty)
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.withAlpha(25),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        'Tag này chưa được chia sẻ với ai.',
+                                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Column(
+                                    children: _sharedUsers.map<Widget>((su) {
+                                      return Card(
+                                        margin: const EdgeInsets.only(bottom: 6),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          side: BorderSide(color: Colors.grey.withAlpha(50)),
+                                        ),
+                                        child: ListTile(
+                                          dense: true,
+                                          leading: CircleAvatar(
+                                            radius: 16,
+                                            backgroundColor: Colors.teal.shade100,
+                                            child: Text(
+                                              (su['name'] != null && su['name'].toString().isNotEmpty)
+                                                  ? su['name'].toString().substring(0, 1).toUpperCase()
+                                                  : 'U',
+                                              style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                          title: Text(
+                                            su['email'] ?? '',
+                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                          ),
+                                          subtitle: su['name'] != null && su['name'].toString().isNotEmpty
+                                              ? Text(su['name'], style: const TextStyle(fontSize: 11))
+                                              : null,
+                                          trailing: IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                            tooltip: 'Dừng chia sẻ',
+                                            onPressed: _submitting ? null : () => _unshareDevice(su['device_id'], su['email']),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                              ],
+                            ),
+                          ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

@@ -46,63 +46,55 @@ class AccessoryListItemState extends State<AccessoryListItem> {
         }
       });
     }
-    return FutureBuilder<Placemark?>(
-      future: widget.accessory.place,
-      builder: (BuildContext context, AsyncSnapshot<Placemark?> snapshot) {
-        String locationString = widget.accessory.lastLocation != null
-            ? '${widget.accessory.lastLocation!.latitude.toStringAsFixed(4)}, ${widget.accessory.lastLocation!.longitude.toStringAsFixed(4)}'
-            : 'Unknown';
+    // Format published date: Ngày trước, giờ sau (dd/MM/yyyy - HH:mm)
+    final String dateString = widget.accessory.datePublished != null &&
+            widget.accessory.datePublished != DateTime(1970)
+        ? DateFormat('dd/MM/yyyy - HH:mm').format(widget.accessory.datePublished!)
+        : 'Chưa có vị trí';
 
-        if (snapshot.hasData && snapshot.data != null) {
-          Placemark place = snapshot.data!;
-          locationString = '${place.locality}, ${place.administrativeArea}';
-          if (widget.herePlace != null &&
-              widget.herePlace!.country != place.country) {
-            locationString = '${place.locality}, ${place.country}';
-          }
-        }
-        // Format published date in 24-hour format (e.g. 14:30 - 19/08/2026)
-        String? dateString = widget.accessory.datePublished != null &&
-                widget.accessory.datePublished != DateTime(1970)
-            ? '\n${DateFormat('HH:mm - dd/MM/yyyy').format(widget.accessory.datePublished!)}'
-            : '';
-
-        return AnimatedContainer(
-            duration: const Duration(milliseconds: 300), // Sanfter Übergang
-            color: _tileColor,
-            child: ListTile(
-              onTap: widget.onTap,
-              title: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.accessory.name +
-                        (widget.accessory.isActive ? '' : ' (inactive)'),
-                    style: TextStyle(
-                      color: widget.accessory.isActive
-                          ? Theme.of(context).colorScheme.onSurface
-                          : Theme.of(context).disabledColor,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  _buildIcon(),
-                ],
-              ),
-              subtitle: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: Text(locationString + dateString),
-              ),
-              trailing: widget.distance,
-              dense: true,
-              leading: GestureDetector(
-                onLongPress: widget.onLongPress,
-                child: AccessoryIcon(
-                  icon: widget.accessory.icon,
-                  color: widget.accessory.color,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      color: _tileColor,
+      child: ListTile(
+        onTap: widget.onTap,
+        title: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                widget.accessory.name +
+                    (widget.accessory.isActive ? '' : ' (inactive)'),
+                style: TextStyle(
+                  color: widget.accessory.isActive
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(context).disabledColor,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ));
-      },
+            ),
+            const SizedBox(width: 5),
+            _buildIcon(),
+          ],
+        ),
+        subtitle: Text(
+          dateString,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey.shade400
+                : Colors.grey.shade600,
+          ),
+        ),
+        trailing: widget.distance,
+        dense: true,
+        leading: GestureDetector(
+          onLongPress: widget.onLongPress,
+          child: AccessoryIcon(
+            icon: widget.accessory.icon,
+            color: widget.accessory.color,
+          ),
+        ),
+      ),
     );
   }
 

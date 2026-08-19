@@ -224,7 +224,12 @@ async def run_sync_task() -> dict:
 
         except Exception as e:
             logger.error(f"Sync failed for Apple ID {account_rec.apple_id}: {e}", exc_info=True)
-            await handle_icloud_failure(db, account_rec, f"Lỗi đồng bộ Apple ID: {str(e)}")
+            err_str = str(e).lower()
+            # Only trigger failure alert for genuine auth/session failures, not transient network errors
+            if any(k in err_str for k in ["401", "unauthorized", "auth", "token", "session", "2fa", "credential", "forbidden"]):
+                await handle_icloud_failure(db, account_rec, f"Lỗi xác thực Apple ID: {str(e)}")
+            else:
+                logger.warning(f"Temporary sync error (no alert dispatched): {e}")
 
     return {
         "new_reports":     total_new,

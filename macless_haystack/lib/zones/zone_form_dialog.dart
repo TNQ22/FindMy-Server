@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:provider/provider.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:macless_haystack/location/location_model.dart';
@@ -71,8 +72,11 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
         _lonController.text = locationModel.here!.longitude.toStringAsFixed(6);
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa lấy được vị trí GPS thiết bị này.')),
+      AppToast.showText(
+        context,
+        'Chưa lấy được vị trí GPS thiết bị này.',
+        icon: Icons.location_off,
+        backgroundColor: Colors.amber.shade900,
       );
     }
   }
@@ -124,8 +128,11 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
     final lat = double.tryParse(_latController.text.trim());
     final lon = double.tryParse(_lonController.text.trim());
     if (lat == null || lon == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tọa độ không hợp lệ.')),
+      AppToast.showText(
+        context,
+        'Tọa độ không hợp lệ.',
+        icon: Icons.error_outline,
+        backgroundColor: Colors.red.shade700,
       );
       return;
     }
@@ -170,8 +177,11 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
       if (ok) {
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Có lỗi xảy ra khi lưu khu vực.')),
+        AppToast.showText(
+          context,
+          'Có lỗi xảy ra khi lưu khu vực.',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red.shade700,
         );
       }
     }
@@ -181,53 +191,92 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
   Widget build(BuildContext context) {
     final accessories = Provider.of<AccessoryRegistry>(context).accessories;
     final isEditing = widget.zone != null;
+    final mediaQuery = MediaQuery.of(context);
+    final isMobile = mediaQuery.size.width < 600;
 
     return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 16 : 24,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        width: 600,
-        constraints: const BoxConstraints(maxHeight: 750),
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? double.infinity : 600,
+          maxHeight: mediaQuery.size.height * 0.90,
+        ),
+        child: Column(
+          children: [
+            // Top Bar with Emerald Green / Teal Gradient
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 20,
+                vertical: isMobile ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade800, Colors.teal.shade600],
+                ),
+              ),
+              child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.teal.withOpacity(0.12),
+                      color: Colors.white.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       isEditing ? Icons.edit_location_alt_outlined : Icons.add_location_alt_outlined,
-                      color: Colors.teal,
-                      size: 24,
+                      color: Colors.white,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    isEditing ? 'Chỉnh sửa Khu vực An toàn' : 'Tạo Khu vực An toàn Mới',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isEditing ? 'Chỉnh Sửa Khu Vực An Toàn' : 'Tạo Khu Vực An Toàn Mới',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Cấu hình bán kính hoặc vùng đa giác định vị',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 16),
+            ),
+
+            // Form Body
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 12 : 18),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
 
               // Form fields
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
                   children: [
                     // Tên khu vực
                     TextFormField(
@@ -247,7 +296,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                       borderRadius: BorderRadius.circular(14),
                       onTap: _openMapPicker,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
                           color: Theme.of(context).brightness == Brightness.dark
                               ? Colors.teal.shade900.withOpacity(0.3)
@@ -258,7 +307,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                         child: Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: Colors.teal,
                                 borderRadius: BorderRadius.circular(10),
@@ -266,25 +315,25 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                               child: Icon(
                                 _shapeType == 'polygon' ? Icons.polyline : Icons.map_outlined,
                                 color: Colors.white,
-                                size: 24,
+                                size: 22,
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
                                     'Thiết lập vùng trên Bản đồ',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 3),
                                   Text(
                                     _shapeType == 'polygon'
                                         ? 'Đa giác • ${_polygonPoints.length} điểm đỉnh'
                                         : 'Hình tròn • Bán kính: ${_radius >= 1000 ? "${(_radius / 1000).toStringAsFixed(1)} km" : "${_radius.toInt()} m"}',
                                     style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       color: Theme.of(context).brightness == Brightness.dark
                                           ? Colors.tealAccent
                                           : Colors.teal.shade800,
@@ -299,17 +348,17 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                                 backgroundColor: Colors.teal,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               onPressed: _openMapPicker,
-                              child: const Text('Mở bản đồ', style: TextStyle(fontWeight: FontWeight.bold)),
+                              child: const Text('Mở bản đồ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
                     // Danh sách Thẻ định vị áp dụng
                     const Text(
@@ -352,19 +401,19 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                           }).toList(),
                         ),
                       ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
                     // Cấu hình Cảnh báo
                     const Text(
                       'Tùy chọn Cảnh báo:',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     SwitchListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       secondary: const Icon(Icons.exit_to_app, color: Colors.red),
-                      title: const Text('Cảnh báo khi RỜI KHỎI (Exit)'),
+                      title: const Text('Cảnh báo khi RỜI KHỎI (Exit)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                       subtitle: const Text('Gửi thông báo khi thẻ di chuyển ra ngoài vùng an toàn', style: TextStyle(fontSize: 11)),
                       value: _alertOnExit,
                       onChanged: (val) => setState(() => _alertOnExit = val),
@@ -373,12 +422,12 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       secondary: const Icon(Icons.login, color: Colors.green),
-                      title: const Text('Cảnh báo khi ĐI VÀO (Enter)'),
+                      title: const Text('Cảnh báo khi ĐI VÀO (Enter)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                       subtitle: const Text('Gửi thông báo khi thẻ di chuyển vào lại vùng an toàn', style: TextStyle(fontSize: 11)),
                       value: _alertOnEnter,
                       onChanged: (val) => setState(() => _alertOnEnter = val),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
                     // Thời gian Cooldown
                     Row(
@@ -404,15 +453,16 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                 ),
               ),
 
-              const SizedBox(height: 16),
-              const Divider(height: 1),
               const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
 
-              // Buttons & Active Switch
-              Row(
-                children: [
-                  // Active switch on bottom left
-                  InkWell(
+              // Buttons & Active Switch (Trái: Kích hoạt theo dõi, Phải: Hủy bỏ & Tạo khu vực, tự xuống dòng khi màn hình hẹp)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 440;
+
+                  final leftSwitch = InkWell(
                     borderRadius: BorderRadius.circular(8),
                     onTap: () => setState(() => _isActive = !_isActive),
                     child: Padding(
@@ -437,34 +487,65 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                         ],
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _submitting ? null : () => Navigator.pop(context),
-                    child: const Text('Hủy bỏ'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    icon: _submitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.check, size: 18),
-                    label: Text(isEditing ? 'Lưu thay đổi' : 'Tạo Khu vực'),
-                    onPressed: _submitting ? null : _submit,
-                  ),
-                ],
+                  );
+
+                  final rightButtons = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: _submitting ? null : () => Navigator.pop(context),
+                        child: const Text('Hủy bỏ'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: _submitting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.check, size: 18),
+                        label: Text(isEditing ? 'Lưu thay đổi' : 'Tạo Khu vực'),
+                        onPressed: _submitting ? null : _submit,
+                      ),
+                    ],
+                  );
+
+                  if (isCompact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        leftSwitch,
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: rightButtons,
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      leftSwitch,
+                      const Spacer(),
+                      rightButtons,
+                    ],
+                  );
+                },
               ),
-            ],
-          ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

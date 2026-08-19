@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:macless_haystack/findMy/find_my_controller.dart';
@@ -181,10 +182,11 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                                     listen: false);
                             accessoryRegistry.editAccessory(
                                 widget.accessory, newAccessory);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Changes saved!'),
-                              ),
+                            AppToast.showText(
+                              context,
+                              'Đã lưu thay đổi!',
+                              icon: Icons.check_circle,
+                              backgroundColor: Colors.teal.shade800,
                             );
                           }
                         },
@@ -201,11 +203,11 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                     var accessoryRegistry =
                         Provider.of<AccessoryRegistry>(context, listen: false);
                     accessoryRegistry.deleteData(widget.accessory);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content:
-                            Text('All current and historical data deleted'),
-                      ),
+                    AppToast.showText(
+                      context,
+                      'Đã xóa toàn bộ dữ liệu lịch sử của thiết bị',
+                      icon: Icons.delete_outline,
+                      backgroundColor: Colors.amber.shade900,
                     );
                   },
                   child: const Text('Reset Accessory'),
