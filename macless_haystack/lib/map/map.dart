@@ -78,7 +78,7 @@ class _AccessoryMapState extends State<AccessoryMap> {
             bounds: LatLngBounds.fromPoints(activeTagLocations),
             padding: EdgeInsets.fromLTRB(
               isDesktop ? 410 : 36,
-              isDesktop ? 95 : 64,
+              isDesktop ? 36 : 64,
               36,
               36,
             ),

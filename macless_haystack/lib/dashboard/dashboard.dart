@@ -194,20 +194,17 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
 
-            // Layer 1: Floating Glassmorphic Top Bar
+            // Layer 1: Floating User Profile Button (Top-Right)
             Positioned(
-              top: 14,
-              left: 16,
+              top: 16,
               right: 16,
               child: Container(
-                height: 54,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: isDark ? Colors.grey.shade900.withOpacity(0.92) : Colors.white.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(16),
+                  shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: Colors.black.withOpacity(0.16),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -216,93 +213,15 @@ class _DashboardState extends State<Dashboard> {
                     color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    // Sidebar Toggle Button
-                    IconButton(
-                      icon: Icon(_isSidebarCollapsed ? Icons.menu : Icons.menu_open, color: Colors.teal),
-                      tooltip: _isSidebarCollapsed ? 'Mở danh sách thiết bị' : 'Thu gọn danh sách',
-                      onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
-                    ),
-                    const SizedBox(width: 6),
-
-                    // App Title & Badge
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.radar, color: Colors.teal, size: 22),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'FindMy Server',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$activeCount Tag',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Spacer(),
-
-                    // Action: Sync Now
-                    IconButton(
-                      icon: _isSyncing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal),
-                            )
-                          : const Icon(Icons.sync_rounded, color: Colors.teal),
-                      tooltip: 'Đồng bộ vị trí từ Apple iCloud',
-                      onPressed: _isSyncing ? null : () => loadLocationUpdates(null),
-                    ),
-
-                    // Action: Add Tag (+)
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline, color: Colors.teal),
-                      tooltip: 'Thêm thiết bị mới',
-                      onPressed: () => const NewKeyAction().showCreationSheet(context),
-                    ),
-
-                    const SizedBox(width: 4),
-                    const VerticalDivider(indent: 12, endIndent: 12),
-                    const SizedBox(width: 4),
-
-                    // User Profile Menu
-                    const UserAvatarMenu(),
-                  ],
-                ),
+                child: const UserAvatarMenu(),
               ),
             ),
 
-            // Layer 2: Floating Sidebar Panel (Apple Find My Style)
+            // Layer 2: Floating Left Sidebar Panel (Full-height from top: 16 to bottom: 16)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutCubic,
-              top: 80,
+              top: 16,
               left: _isSidebarCollapsed ? -410 : 16,
               bottom: 16,
               width: 380,
@@ -339,8 +258,10 @@ class _DashboardState extends State<Dashboard> {
                           children: [
                             Row(
                               children: [
+                                const Icon(Icons.radar, color: Colors.teal, size: 20),
+                                const SizedBox(width: 8),
                                 const Text(
-                                  'Vật Dụng & Thiết Bị',
+                                  'FindMy Server',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                                 const SizedBox(width: 8),
@@ -358,7 +279,7 @@ class _DashboardState extends State<Dashboard> {
                                 const Spacer(),
                                 IconButton(
                                   icon: const Icon(Icons.chevron_left, size: 22),
-                                  tooltip: 'Thu gọn bảng',
+                                  tooltip: 'Thu gọn danh sách',
                                   onPressed: () => setState(() => _isSidebarCollapsed = true),
                                 ),
                               ],
@@ -475,16 +396,57 @@ class _DashboardState extends State<Dashboard> {
                               )
                             : const KeyManagement(),
                       ),
+
+                      // Panel Bottom Toolbar (Nút chuyển đổi động theo tab: Làm mới khi ở Vị trí, Thêm Tag khi ở Quản lý)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
+                          border: Border(
+                            top: BorderSide(
+                              color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
+                            ),
+                          ),
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal,
+                              foregroundColor: Colors.white,
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            icon: _desktopTab == 0
+                                ? (_isSyncing
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.refresh, size: 20))
+                                : const Icon(Icons.add, size: 20),
+                            label: Text(
+                              _desktopTab == 0 ? 'Làm mới vị trí' : 'Thêm Tag mới',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            onPressed: _desktopTab == 0
+                                ? (_isSyncing ? null : () => loadLocationUpdates(null))
+                                : () => const NewKeyAction().showCreationSheet(context),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // Layer 3: Floating Restore Button (When sidebar collapsed)
+            // Layer 3: Floating Top-Left Button to Open List (When sidebar is collapsed)
             if (_isSidebarCollapsed)
               Positioned(
-                top: 84,
+                top: 16,
                 left: 16,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
@@ -493,10 +455,40 @@ class _DashboardState extends State<Dashboard> {
                     elevation: 6,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    side: BorderSide(color: isDark ? Colors.white12 : Colors.black.withOpacity(0.08)),
                   ),
                   icon: const Icon(Icons.view_sidebar_outlined, size: 18),
                   label: const Text('Danh sách thiết bị', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  onPressed: () => setState(() => _isSidebarCollapsed = false),
+                  onPressed: () => setState(() {
+                    _isSidebarCollapsed = false;
+                    _desktopTab = 0;
+                  }),
+                ),
+              ),
+
+            // Layer 4: Floating Bottom-Left Action Button (When sidebar is collapsed)
+            if (_isSidebarCollapsed)
+              Positioned(
+                bottom: 16,
+                left: 16,
+                child: FloatingActionButton(
+                  heroTag: 'desktopCollapsedFab',
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  elevation: 6,
+                  tooltip: _desktopTab == 0 ? 'Làm mới vị trí từ Apple' : 'Thêm thiết bị mới',
+                  onPressed: _desktopTab == 0
+                      ? (_isSyncing ? null : () => loadLocationUpdates(null))
+                      : () => const NewKeyAction().showCreationSheet(context),
+                  child: _desktopTab == 0
+                      ? (_isSyncing
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                            )
+                          : const Icon(Icons.refresh, size: 26))
+                      : const Icon(Icons.add, size: 26),
                 ),
               ),
           ],
