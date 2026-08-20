@@ -325,22 +325,54 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                   Align(
                     alignment: Alignment.topRight,
                     child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: ToggleButtons(
-                        isSelected: visibility,
-                        onPressed: (int index) {
-                          setState(() {
-                            visibility[index] = !visibility[index];
-                            isLineLayerVisible = visibility[0];
-                            isPointLayerVisible = visibility[1];
-                            showPopup = false;
-                            popupEntry = null;
-                          });
-                        },
-                        children: const [
-                          Icon(Icons.timeline),
-                          Icon(Icons.scatter_plot_rounded),
-                        ],
+                      padding: const EdgeInsets.all(12.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey.shade900
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ToggleButtons(
+                          borderRadius: BorderRadius.circular(10),
+                          selectedColor: Colors.white,
+                          fillColor: Colors.teal,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade800,
+                          selectedBorderColor: Colors.teal,
+                          borderColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white24
+                              : Colors.black12,
+                          constraints: const BoxConstraints(minWidth: 42, minHeight: 38),
+                          isSelected: visibility,
+                          onPressed: (int index) {
+                            setState(() {
+                              visibility[index] = !visibility[index];
+                              isLineLayerVisible = visibility[0];
+                              isPointLayerVisible = visibility[1];
+                              showPopup = false;
+                              popupEntry = null;
+                            });
+                          },
+                          children: const [
+                            Tooltip(
+                              message: 'Bật/Tắt đường nối lộ trình',
+                              child: Icon(Icons.timeline, size: 20),
+                            ),
+                            Tooltip(
+                              message: 'Bật/Tắt các điểm dừng vị trí',
+                              child: Icon(Icons.scatter_plot_rounded, size: 20),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
