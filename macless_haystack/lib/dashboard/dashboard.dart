@@ -150,7 +150,19 @@ class _DashboardState extends State<Dashboard> {
   }
 
   void _centerMap(LatLng point) {
-    _mapController.move(point, 17);
+    final isDesktop = MediaQuery.of(context).size.width >= 720;
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints([point]),
+        maxZoom: 17.0,
+        padding: EdgeInsets.fromLTRB(
+          isDesktop && !_isSidebarCollapsed ? 466 : 35,
+          isDesktop ? 70 : 35,
+          isDesktop ? 127 : 92,
+          isDesktop ? 70 : 35,
+        ),
+      ),
+    );
   }
 
   @override

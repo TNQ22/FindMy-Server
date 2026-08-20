@@ -109,7 +109,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Khu Vực Cảnh Báo (Safe Zones)',
+                          'Khu Vực Cảnh Báo',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: isMobile ? 16 : 18,
@@ -243,7 +243,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                           Icon(Icons.fmd_bad_outlined, size: 54, color: Colors.grey.shade400),
                           const SizedBox(height: 12),
                           const Text(
-                            'Chưa có Khu vực An toàn nào',
+                            'Chưa có Khu vực Cảnh báo nào',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 6),
@@ -276,8 +276,71 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                           ? '${(zone.radius / 1000).toStringAsFixed(1)} km'
                           : '${zone.radius.toInt()} m';
 
+                      final actionButtons = Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Tooltip(
+                            message: 'Xem vị trí trên bản đồ',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () {
+                                registry.focusZone(zone);
+                                Navigator.pop(context);
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.center_focus_strong, size: 18, color: Colors.teal),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Tooltip(
+                            message: 'Chỉnh sửa',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () => _openEditZone(zone),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.edit_outlined, size: 18, color: Colors.teal),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Tooltip(
+                            message: 'Xóa khu vực',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Xác nhận xóa'),
+                                    content: Text('Bạn có chắc chắn muốn xóa khu vực "${zone.name}" không?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Xóa'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  await registry.deleteZone(zone.id);
+                                }
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+
                       return Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.grey.shade900 : Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -296,7 +359,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Zone Title Row
+                            // Hàng 1: Icon Khiên + (Tên khu vực + Cụm Badges) + 3 nút thao tác (Góc trên phải)
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -307,25 +370,26 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    Icons.shield,
+                                    zone.shapeType == 'polygon' ? Icons.polyline : Icons.shield,
                                     color: zone.isActive ? Colors.teal : Colors.grey,
                                     size: 17,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 6,
+                                    runSpacing: 4,
                                     children: [
-                                      Wrap(
-                                        crossAxisAlignment: WrapCrossAlignment.center,
-                                        spacing: 6,
-                                        runSpacing: 4,
+                                      Text(
+                                        zone.name,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      ),
+                                      // Cụm [HÌNH TRÒN] và [ĐANG BẬT] gom chung trong Row để khi rớt dòng sẽ rớt CẢ CỤM
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            zone.name,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                          ),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
@@ -333,14 +397,17 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                               borderRadius: BorderRadius.circular(6),
                                             ),
                                             child: Text(
-                                              zone.shapeType == 'polygon' ? 'ĐA GIÁC' : 'HÌNH TRÒN',
+                                              zone.shapeType == 'polygon'
+                                                  ? 'ĐA GIÁC (${zone.polygonPoints.length} điểm)'
+                                                  : 'HÌNH TRÒN ($radiusStr)',
                                               style: TextStyle(
-                                                fontSize: 9,
+                                                fontSize: 9.5,
                                                 fontWeight: FontWeight.bold,
                                                 color: Colors.teal.shade900,
                                               ),
                                             ),
                                           ),
+                                          const SizedBox(width: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
@@ -350,7 +417,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                             child: Text(
                                               zone.isActive ? 'ĐANG BẬT' : 'TẮT',
                                               style: TextStyle(
-                                                fontSize: 9,
+                                                fontSize: 9.5,
                                                 fontWeight: FontWeight.bold,
                                                 color: zone.isActive ? Colors.green.shade900 : Colors.grey.shade700,
                                               ),
@@ -358,73 +425,15 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        zone.shapeType == 'polygon'
-                                            ? 'Đa giác: ${zone.polygonPoints.length} điểm • Tâm: ${zone.latitude.toStringAsFixed(4)}, ${zone.longitude.toStringAsFixed(4)}'
-                                            : 'Bán kính: $radiusStr • Tâm: ${zone.latitude.toStringAsFixed(4)}, ${zone.longitude.toStringAsFixed(4)}',
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      ),
                                     ],
                                   ),
                                 ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.all(4),
-                                      constraints: const BoxConstraints(),
-                                      icon: const Icon(Icons.center_focus_strong, size: 18, color: Colors.teal),
-                                      tooltip: 'Xem vị trí trên bản đồ',
-                                      onPressed: () {
-                                        registry.focusZone(zone);
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                    const SizedBox(width: 2),
-                                    IconButton(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.all(4),
-                                      constraints: const BoxConstraints(),
-                                      icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.teal),
-                                      tooltip: 'Chỉnh sửa',
-                                      onPressed: () => _openEditZone(zone),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    IconButton(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.all(4),
-                                      constraints: const BoxConstraints(),
-                                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                      tooltip: 'Xóa khu vực',
-                                      onPressed: () async {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            title: const Text('Xác nhận xóa'),
-                                            content: Text('Bạn có chắc chắn muốn xóa khu vực "${zone.name}" không?'),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-                                              ElevatedButton(
-                                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                                                onPressed: () => Navigator.pop(ctx, true),
-                                                child: const Text('Xóa'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirm == true) {
-                                          await registry.deleteZone(zone.id);
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
+                                const SizedBox(width: 6),
+                                actionButtons,
                               ],
                             ),
 
-                            // Alert Flags
+                            // Dòng cờ cảnh báo (Alert Flags & Cooldown) - Sát lề trái
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 6,
@@ -458,7 +467,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                       children: [
                                         Icon(Icons.login, size: 12, color: Colors.green),
                                         SizedBox(width: 4),
-                                        Text('Báo khi Đi vào', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                                        Text('Báo khi Đến', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
                                   ),

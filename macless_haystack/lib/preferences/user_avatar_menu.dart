@@ -309,7 +309,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             ),
                             child: const Icon(Icons.shield_outlined, color: Colors.teal, size: 20),
                           ),
-                          title: const Text('Khu Vực Cảnh Báo (Safe Zone)', style: TextStyle(fontWeight: FontWeight.w600)),
+                          title: const Text('Khu Vực Cảnh Báo', style: TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: const Text('Hàng rào địa lý & cảnh báo ra vào vùng', style: TextStyle(fontSize: 11)),
                           trailing: const Icon(Icons.chevron_right, size: 18),
                           onTap: () {

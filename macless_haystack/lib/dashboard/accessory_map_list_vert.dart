@@ -30,7 +30,13 @@ class _AccessoryMapListVerticalState extends State<AccessoryMapListVertical> {
   final MapController _mapController = MapController();
 
   void _centerPoint(LatLng point) {
-    _mapController.move(point, 17);
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints([point]),
+        maxZoom: 16.5,
+        padding: const EdgeInsets.fromLTRB(35, 35, 92, 35),
+      ),
+    );
   }
 
   @override

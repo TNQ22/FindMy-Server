@@ -33,40 +33,55 @@ class KeyManagement extends StatelessWidget {
                       accessory.datePublished != DateTime(1970)
                   ? DateFormat('dd/MM/yyyy - HH:mm')
                       .format(accessory.datePublished!)
-                  : 'Never';
+                  : 'Chưa có vị trí';
               return Material(
-                  child: ListTile(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AccessoryDetail(
-                      accessory: accessory,
+                color: Colors.transparent,
+                child: ListTile(
+                  dense: true,
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AccessoryDetail(
+                        accessory: accessory,
+                      ),
+                    );
+                  },
+                  title: Text(
+                    accessory.name + (accessory.isActive ? '' : ' (inactive)'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: accessory.isActive
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Theme.of(context).disabledColor,
                     ),
-                  );
-                },
-                title: Text(
-                  accessory.name + (accessory.isActive ? '' : ' (inactive)'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: accessory.isActive ? null : Colors.grey,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    lastSeen,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  leading: Opacity(
+                    opacity: accessory.isActive ? 1.0 : 0.5,
+                    child: AccessoryIcon(
+                      icon: accessory.icon,
+                      color: accessory.color,
+                    ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ItemShareAction(accessory: accessory),
+                      ItemExportMenu(accessory: accessory),
+                    ],
                   ),
                 ),
-                subtitle: Text('Last seen: $lastSeen'),
-                leading: Opacity(
-                  opacity: accessory.isActive ? 1.0 : 0.5,
-                  child: AccessoryIcon(
-                    icon: accessory.icon,
-                    color: accessory.color,
-                  ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ItemShareAction(accessory: accessory),
-                    ItemExportMenu(accessory: accessory),
-                  ],
-                ),
-              ));
+              );
             }).toList(),
           ),
         );

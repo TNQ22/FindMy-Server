@@ -5,6 +5,7 @@ import 'package:macless_haystack/accessory/accessory_model.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:macless_haystack/history/history_date_range_picker.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:macless_haystack/map/map_tile_layer.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 
@@ -51,6 +52,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
   bool isLoading = false;
   bool isLineLayerVisible = true;
   bool isPointLayerVisible = true;
+  MapLayerStyle _mapStyle = MapLayerStyle.current;
 
   bool showPopup = false;
   ClusteredHistoryEntry? popupEntry;
@@ -110,7 +112,11 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
           _historyEntries.map((e) => LatLng(e.latitude, e.longitude)).toList();
       try {
         final bounds = LatLngBounds.fromPoints(points);
-        _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(32), maxZoom: 17.0));
+        _mapController.fitCamera(CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.fromLTRB(40, 70, 70, 70),
+          maxZoom: 17.0,
+        ));
       } catch (_) {
         if (_historyEntries.isNotEmpty) {
           _mapController.move(
@@ -220,7 +226,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                 key: ValueKey(MediaQuery.of(context).orientation),
                 mapController: _mapController,
                 options: MapOptions(
-                  backgroundColor: Theme.of(context).colorScheme.surface,
+                  backgroundColor: const Color(0xFF0E2238),
                   initialCenter: widget.accessory.lastLocation ??
                       const LatLng(16.4637, 107.5909),
                   maxZoom: 21.0,
@@ -244,30 +250,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                   },
                 ),
                 children: [
-                  TileLayer(
-                    tileProvider: NetworkTileProvider(),
-                    urlTemplate:
-                        'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2&hl=$langCode',
-                    subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
-                    maxZoom: 21,
-                    maxNativeZoom: 20,
-                    userAgentPackageName: 'de.dchristl.headlesshaystack',
-                    /*tileBuilder: (context, child, tile) {
-                      final isDark =
-                          Theme.of(context).brightness == Brightness.dark;
-                      return isDark
-                          ? ColorFiltered(
-                              colorFilter: const ColorFilter.matrix([
-                                -1, 0, 0, 0, 255,
-                                0, -1, 0, 0, 255,
-                                0, 0, -1, 0, 255,
-                                0, 0, 0,  1,   0,
-                              ]),
-                              child: child,
-                            )
-                          : child;
-                    },*/
-                  ),
+                  ...buildMapTileLayers(_mapStyle, langCode),
                   PolylineLayer(polylines: polylines),
                   MarkerLayer(
                     markers: clusters
@@ -326,53 +309,88 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                     alignment: Alignment.topRight,
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey.shade900
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade900
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: ToggleButtons(
-                          borderRadius: BorderRadius.circular(10),
-                          selectedColor: Colors.white,
-                          fillColor: Colors.teal,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey.shade300
-                              : Colors.grey.shade800,
-                          selectedBorderColor: Colors.teal,
-                          borderColor: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white24
-                              : Colors.black12,
-                          constraints: const BoxConstraints(minWidth: 42, minHeight: 38),
-                          isSelected: visibility,
-                          onPressed: (int index) {
-                            setState(() {
-                              visibility[index] = !visibility[index];
-                              isLineLayerVisible = visibility[0];
-                              isPointLayerVisible = visibility[1];
-                              showPopup = false;
-                              popupEntry = null;
-                            });
-                          },
-                          children: const [
-                            Tooltip(
-                              message: 'Bật/Tắt đường nối lộ trình',
-                              child: Icon(Icons.timeline, size: 20),
+                            child: IconButton(
+                              icon: const Icon(Icons.layers_outlined, size: 20),
+                              tooltip: 'Đổi kiểu bản đồ (${_mapStyle.label})',
+                              color: Colors.teal,
+                              onPressed: () {
+                                showMapStyleSelectorDialog(
+                                  context,
+                                  currentStyle: _mapStyle,
+                                  onStyleChanged: (newStyle) {
+                                    setState(() => _mapStyle = newStyle);
+                                  },
+                                );
+                              },
                             ),
-                            Tooltip(
-                              message: 'Bật/Tắt các điểm dừng vị trí',
-                              child: Icon(Icons.scatter_plot_rounded, size: 20),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade900
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                            child: ToggleButtons(
+                              borderRadius: BorderRadius.circular(10),
+                              selectedColor: Colors.white,
+                              fillColor: Colors.teal,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade300
+                                  : Colors.grey.shade800,
+                              selectedBorderColor: Colors.teal,
+                              borderColor: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white24
+                                  : Colors.black12,
+                              constraints: const BoxConstraints(minWidth: 42, minHeight: 38),
+                              isSelected: visibility,
+                              onPressed: (int index) {
+                                setState(() {
+                                  visibility[index] = !visibility[index];
+                                  isLineLayerVisible = visibility[0];
+                                  isPointLayerVisible = visibility[1];
+                                  showPopup = false;
+                                  popupEntry = null;
+                                });
+                              },
+                              children: const [
+                                Tooltip(
+                                  message: 'Bật/Tắt đường nối lộ trình',
+                                  child: Icon(Icons.timeline, size: 20),
+                                ),
+                                Tooltip(
+                                  message: 'Bật/Tắt các điểm dừng vị trí',
+                                  child: Icon(Icons.scatter_plot_rounded, size: 20),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:macless_haystack/dashboard/app_toast.dart';
+import 'package:macless_haystack/map/map_tile_layer.dart';
 import 'package:provider/provider.dart';
 
 import 'package:macless_haystack/accessory/accessory_icon.dart';
@@ -48,6 +49,7 @@ class _ZoneMapPickerState extends State<ZoneMapPicker> {
   // Circle mode state
   late LatLng _selectedLocation;
   late double _selectedRadius;
+  MapLayerStyle _mapStyle = MapLayerStyle.current;
 
   // Polygon mode state
   late List<LatLng> _polygonPoints;
@@ -381,6 +383,7 @@ class _ZoneMapPickerState extends State<ZoneMapPicker> {
                 initialZoom: 16.0,
                 maxZoom: 21.0,
                 minZoom: 2.0,
+                backgroundColor: const Color(0xFF0E2238),
                 onTap: _onMapTapped,
                 interactionOptions: InteractionOptions(
                   enableMultiFingerGestureRace: true,
@@ -390,15 +393,7 @@ class _ZoneMapPickerState extends State<ZoneMapPicker> {
                 ),
               ),
               children: [
-                // TileLayer
-                TileLayer(
-                  tileProvider: NetworkTileProvider(),
-                  urlTemplate: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2&hl=$langCode',
-                  subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
-                  maxZoom: 21,
-                  maxNativeZoom: 20,
-                  userAgentPackageName: 'de.dchristl.headlesshaystack',
-                ),
+                ...buildMapTileLayers(_mapStyle, langCode),
 
                 // Circle Mode Preview Layer
                 if (_shapeType == 'circle')
@@ -703,11 +698,44 @@ class _ZoneMapPickerState extends State<ZoneMapPicker> {
           ),
         ),
 
+          // Floating Layer Style Switcher Button (Top-Right)
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade900.withOpacity(0.95) : Colors.white.withOpacity(0.95),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.layers_outlined, size: 20),
+                tooltip: 'Đổi kiểu bản đồ (${_mapStyle.label})',
+                color: Colors.teal,
+                onPressed: () {
+                  showMapStyleSelectorDialog(
+                    context,
+                    currentStyle: _mapStyle,
+                    onStyleChanged: (newStyle) {
+                      setState(() => _mapStyle = newStyle);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+
           // Top Mode Switcher & Instruction Bar
           Positioned(
             top: 16,
             left: 16,
-            right: 16,
+            right: 68,
             child: Column(
               children: [
                 // Segmented Mode Switcher
