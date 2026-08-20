@@ -195,26 +195,10 @@ class _DashboardState extends State<Dashboard> {
             ),
 
             // Layer 1: Floating User Profile Button (Top-Right)
-            Positioned(
+            const Positioned(
               top: 16,
               right: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade900.withOpacity(0.92) : Colors.white.withOpacity(0.92),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.16),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08),
-                  ),
-                ),
-                child: const UserAvatarMenu(),
-              ),
+              child: UserAvatarMenu(),
             ),
 
             // Layer 2: Floating Left Sidebar Panel (Full-height from top: 16 to bottom: 16)
@@ -506,7 +490,12 @@ class _DashboardState extends State<Dashboard> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: const <Widget>[
-          UserAvatarMenu(),
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Center(
+              child: UserAvatarMenu(),
+            ),
+          ),
         ],
       ),
       body: IndexedStack(

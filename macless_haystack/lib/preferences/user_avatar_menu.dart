@@ -451,56 +451,61 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: GestureDetector(
-        onTap: () => _showProfilePopup(context),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Tooltip(
-            message: _userName ?? 'Tài khoản Google',
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
+    return GestureDetector(
+      onTap: () => _showProfilePopup(context),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Tooltip(
+          message: _userName ?? 'Tài khoản Google',
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Colors.teal.shade300, Colors.teal.shade700],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
+                  backgroundImage: (_userPicture != null && _userPicture!.isNotEmpty)
+                      ? NetworkImage(_userPicture!)
+                      : null,
+                  child: (_userPicture == null || _userPicture!.isEmpty)
+                      ? Text(
+                          (_userName != null && _userName!.isNotEmpty)
+                              ? _userName![0].toUpperCase()
+                              : 'G',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        )
+                      : null,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 2,
+                child: Container(
+                  width: 10,
+                  height: 10,
                   decoration: BoxDecoration(
+                    color: Colors.green,
                     shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Colors.teal.shade300, Colors.teal.shade700],
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    backgroundImage: (_userPicture != null && _userPicture!.isNotEmpty)
-                        ? NetworkImage(_userPicture!)
-                        : null,
-                    child: (_userPicture == null || _userPicture!.isEmpty)
-                        ? Text(
-                            (_userName != null && _userName!.isNotEmpty)
-                                ? _userName![0].toUpperCase()
-                                : 'G',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          )
-                        : null,
+                    border: Border.all(color: Theme.of(context).colorScheme.surface, width: 1.5),
                   ),
                 ),
-                Positioned(
-                  right: 0,
-                  bottom: 4,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Theme.of(context).colorScheme.surface, width: 1.5),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
