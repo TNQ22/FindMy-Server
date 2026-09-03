@@ -28,30 +28,12 @@ class _HistoryDateRangePickerState extends State<HistoryDateRangePicker> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      padding: const EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 10.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.history_rounded, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                _rangeLabel(),
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const Spacer(),
-              if (widget.isLoading)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
+          // Mục chọn ngày chuyển lên trên
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -72,18 +54,26 @@ class _HistoryDateRangePickerState extends State<HistoryDateRangePicker> {
               ],
             ),
           ),
-          // Show selected custom range label
-          if (_selectedPreset == 4 && _customRange != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: Text(
-                '${_fmtDate(_customRange!.start)}  →  ${_fmtDate(_customRange!.end)}',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w500),
+          const SizedBox(height: 8),
+          // Thông tin đang chọn chuyển xuống dưới
+          Row(
+            children: [
+              const Icon(Icons.history_rounded, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                _rangeLabel(),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 14),
               ),
-            ),
+              const Spacer(),
+              if (widget.isLoading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
         ],
       ),
     );
