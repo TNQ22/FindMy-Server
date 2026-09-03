@@ -60,15 +60,18 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
   // The fetched location history entries for the current date range
   List<LocationHistoryEntry> _historyEntries = [];
 
-  // Current date range
-  DateTime _fromDate = DateTime.now().subtract(const Duration(hours: 24));
-  DateTime _toDate = DateTime.now();
+  // Current date range (Default: Hôm nay - from 00:00:00 today to now)
+  late DateTime _fromDate;
+  late DateTime _toDate;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
-    // Default: load last 24 hours
+    final now = DateTime.now();
+    _fromDate = DateTime(now.year, now.month, now.day);
+    _toDate = now;
+    // Default: load today (matching default preset 'Hôm nay')
     _loadHistory(_fromDate, _toDate);
   }
 
