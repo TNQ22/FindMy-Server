@@ -63,10 +63,14 @@ class _AccessoryMapState extends State<AccessoryMap> {
     await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
 
-    final activeTagLocations = accessories
+    final points = accessories
         .where((accessory) => accessory.isActive && accessory.lastLocation != null)
         .map((accessory) => accessory.lastLocation!)
         .toList();
+
+    if (hereLocation != null) {
+      points.add(hereLocation);
+    }
 
     final isDesktop = MediaQuery.of(context).size.width >= 720;
     final insets = EdgeInsets.fromLTRB(
@@ -76,29 +80,23 @@ class _AccessoryMapState extends State<AccessoryMap> {
       isDesktop ? 70 : 35,
     );
 
-    if (activeTagLocations.isNotEmpty) {
-      if (activeTagLocations.length == 1) {
-        // Only 1 tag: center in visible area with proper padding
+    if (points.isNotEmpty) {
+      if (points.length == 1) {
+        // Only 1 point: center in visible area with proper padding
         _mapController.fitCamera(CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints([activeTagLocations.first]),
+          bounds: LatLngBounds.fromPoints([points.first]),
           maxZoom: 16.5,
           padding: insets,
         ));
       } else {
-        // Multiple tags: fit all active tags with generous insets
+        // Multiple points: fit all active tags + current location with generous insets
         _mapController.fitCamera(CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(activeTagLocations),
+          bounds: LatLngBounds.fromPoints(points),
           padding: insets,
           maxZoom: 17.0,
           minZoom: 2.0,
         ));
       }
-    } else if (hereLocation != null) {
-      _mapController.fitCamera(CameraFit.bounds(
-        bounds: LatLngBounds.fromPoints([hereLocation]),
-        maxZoom: 16.5,
-        padding: insets,
-      ));
     }
   }
 
@@ -369,7 +367,7 @@ class _AccessoryMapState extends State<AccessoryMap> {
                   ],
                   FloatingActionButton.small(
                     heroTag: 'fitMapBoundsBtn',
-                    tooltip: 'Bao quát toàn bộ Thẻ định vị',
+                    tooltip: 'Bao quát toàn bộ (Thẻ & Vị trí hiện tại)',
                     backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
                     foregroundColor: Theme.of(context).colorScheme.primary,
                     onPressed: () {
