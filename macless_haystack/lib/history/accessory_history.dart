@@ -207,7 +207,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
       blue = (blue + delta).clamp(0, 255);
     }
 
-    final visibility = [isLineLayerVisible, isPointLayerVisible];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -314,83 +314,141 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                       padding: const EdgeInsets.all(12.0),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          // Nút đổi kiểu bản đồ
                           Container(
+                            width: 40,
+                            height: 40,
                             decoration: BoxDecoration(
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.grey.shade900
-                                  : Colors.white,
+                              color: isDark ? Colors.grey.shade900 : Colors.white,
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.25),
-                                  blurRadius: 8,
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
+                              border: Border.all(
+                                color: isDark ? Colors.white24 : Colors.black12,
+                                width: 1,
+                              ),
                             ),
-                            child: IconButton(
-                              icon: const Icon(Icons.layers_outlined, size: 20),
-                              tooltip: 'Đổi kiểu bản đồ (${_mapStyle.label})',
-                              color: Colors.teal,
-                              onPressed: () {
-                                showMapStyleSelectorDialog(
-                                  context,
-                                  currentStyle: _mapStyle,
-                                  onStyleChanged: (newStyle) {
-                                    setState(() => _mapStyle = newStyle);
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Tooltip(
+                                message: 'Đổi kiểu bản đồ (${_mapStyle.label})',
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(9),
+                                  onTap: () {
+                                    showMapStyleSelectorDialog(
+                                      context,
+                                      currentStyle: _mapStyle,
+                                      onStyleChanged: (newStyle) {
+                                        setState(() => _mapStyle = newStyle);
+                                      },
+                                    );
                                   },
-                                );
-                              },
+                                  child: const Center(
+                                    child: Icon(Icons.layers_outlined, size: 20, color: Colors.teal),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
+                          // Cụm nút bật/tắt lộ trình và điểm dừng vị trí
                           Container(
+                            height: 40,
                             decoration: BoxDecoration(
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.grey.shade900
-                                  : Colors.white,
+                              color: isDark ? Colors.grey.shade900 : Colors.white,
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.25),
-                                  blurRadius: 8,
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
+                              border: Border.all(
+                                color: (isLineLayerVisible && isPointLayerVisible)
+                                    ? Colors.teal
+                                    : (isDark ? Colors.white24 : Colors.black12),
+                                width: 1,
+                              ),
                             ),
-                            child: ToggleButtons(
-                              borderRadius: BorderRadius.circular(10),
-                              selectedColor: Colors.white,
-                              fillColor: Colors.teal,
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.grey.shade300
-                                  : Colors.grey.shade800,
-                              selectedBorderColor: Colors.teal,
-                              borderColor: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white24
-                                  : Colors.black12,
-                              constraints: const BoxConstraints(minWidth: 42, minHeight: 38),
-                              isSelected: visibility,
-                              onPressed: (int index) {
-                                setState(() {
-                                  visibility[index] = !visibility[index];
-                                  isLineLayerVisible = visibility[0];
-                                  isPointLayerVisible = visibility[1];
-                                  showPopup = false;
-                                  popupEntry = null;
-                                });
-                              },
-                              children: const [
-                                Tooltip(
-                                  message: 'Bật/Tắt đường nối lộ trình',
-                                  child: Icon(Icons.timeline, size: 20),
-                                ),
-                                Tooltip(
-                                  message: 'Bật/Tắt các điểm dừng vị trí',
-                                  child: Icon(Icons.scatter_plot_rounded, size: 20),
-                                ),
-                              ],
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(9),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Nút đường kẻ (Bật/Tắt đường nối lộ trình)
+                                  Material(
+                                    color: isLineLayerVisible ? Colors.teal : Colors.transparent,
+                                    child: Tooltip(
+                                      message: 'Bật/Tắt đường nối lộ trình',
+                                      child: InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            isLineLayerVisible = !isLineLayerVisible;
+                                          });
+                                        },
+                                        child: SizedBox(
+                                          width: 42,
+                                          height: 40,
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.timeline,
+                                              size: 20,
+                                              color: isLineLayerVisible
+                                                  ? Colors.white
+                                                  : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Vách ngăn giữa 2 nút
+                                  Container(
+                                    width: 1,
+                                    height: 40,
+                                    color: (isLineLayerVisible && isPointLayerVisible)
+                                        ? Colors.teal.shade600
+                                        : (isDark ? Colors.white24 : Colors.black12),
+                                  ),
+                                  // Nút tròn (Bật/Tắt các điểm dừng vị trí)
+                                  Material(
+                                    color: isPointLayerVisible ? Colors.teal : Colors.transparent,
+                                    child: Tooltip(
+                                      message: 'Bật/Tắt các điểm dừng vị trí',
+                                      child: InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            isPointLayerVisible = !isPointLayerVisible;
+                                            showPopup = false;
+                                            popupEntry = null;
+                                          });
+                                        },
+                                        child: SizedBox(
+                                          width: 42,
+                                          height: 40,
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.scatter_plot_rounded,
+                                              size: 20,
+                                              color: isPointLayerVisible
+                                                  ? Colors.white
+                                                  : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
