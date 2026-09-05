@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -98,6 +99,16 @@ class _AccessoryMapState extends State<AccessoryMap> {
         ));
       }
     }
+  }
+
+  Widget _buildMapFabWithTooltip({
+    required String tooltip,
+    required Widget child,
+  }) {
+    return _MapSideTooltipButton(
+      tooltip: tooltip,
+      child: child,
+    );
   }
 
   @override
@@ -308,72 +319,81 @@ class _AccessoryMapState extends State<AccessoryMap> {
               bottom: 16,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  FloatingActionButton.small(
-                    heroTag: 'safeZonesBtn',
+                  _buildMapFabWithTooltip(
                     tooltip: 'Khu vực cảnh báo',
-                    backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                    foregroundColor: Colors.teal,
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => const ZoneManagementDialog(),
-                      );
-                    },
-                    child: const Icon(Icons.shield_outlined, size: 20),
-                  ),
-                  const SizedBox(height: 4),
-                  FloatingActionButton.small(
-                    heroTag: 'mapStyleBtn',
-                    tooltip: 'Đổi kiểu bản đồ (${_mapStyle.label})',
-                    backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                    foregroundColor: Colors.teal,
-                    onPressed: () {
-                      showMapStyleSelectorDialog(
-                        context,
-                        currentStyle: _mapStyle,
-                        onStyleChanged: (newStyle) {
-                          setState(() => _mapStyle = newStyle);
-                        },
-                      );
-                    },
-                    child: const Icon(Icons.layers_outlined, size: 20),
-                  ),
-                  const SizedBox(height: 4),
-                  if (locationModel.here != null) ...[
-                    FloatingActionButton.small(
-                      heroTag: 'myDeviceLocationBtn',
-                      tooltip: 'Vị trí thiết bị của bạn',
+                    child: FloatingActionButton.small(
+                      heroTag: 'safeZonesBtn',
                       backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
                       foregroundColor: Colors.teal,
                       onPressed: () {
-                        final isDesk = MediaQuery.of(context).size.width >= 720;
-                        _mapController.fitCamera(
-                          CameraFit.bounds(
-                            bounds: LatLngBounds.fromPoints([locationModel.here!]),
-                            maxZoom: 17.0,
-                            padding: EdgeInsets.fromLTRB(
-                              isDesk ? 466 : 35,
-                              isDesk ? 70 : 35,
-                              isDesk ? 127 : 92,
-                              isDesk ? 70 : 35,
-                            ),
-                          ),
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => const ZoneManagementDialog(),
                         );
                       },
-                      child: const Icon(Icons.my_location, size: 20),
+                      child: const Icon(Icons.shield_outlined, size: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _buildMapFabWithTooltip(
+                    tooltip: 'Đổi kiểu bản đồ (${_mapStyle.label})',
+                    child: FloatingActionButton.small(
+                      heroTag: 'mapStyleBtn',
+                      backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                      foregroundColor: Colors.teal,
+                      onPressed: () {
+                        showMapStyleSelectorDialog(
+                          context,
+                          currentStyle: _mapStyle,
+                          onStyleChanged: (newStyle) {
+                            setState(() => _mapStyle = newStyle);
+                          },
+                        );
+                      },
+                      child: const Icon(Icons.layers_outlined, size: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  if (locationModel.here != null) ...[
+                    _buildMapFabWithTooltip(
+                      tooltip: 'Vị trí thiết bị của bạn',
+                      child: FloatingActionButton.small(
+                        heroTag: 'myDeviceLocationBtn',
+                        backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                        foregroundColor: Colors.teal,
+                        onPressed: () {
+                          final isDesk = MediaQuery.of(context).size.width >= 720;
+                          _mapController.fitCamera(
+                            CameraFit.bounds(
+                              bounds: LatLngBounds.fromPoints([locationModel.here!]),
+                              maxZoom: 17.0,
+                              padding: EdgeInsets.fromLTRB(
+                                isDesk ? 466 : 35,
+                                isDesk ? 70 : 35,
+                                isDesk ? 127 : 92,
+                                isDesk ? 70 : 35,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Icon(Icons.my_location, size: 20),
+                      ),
                     ),
                     const SizedBox(height: 4),
                   ],
-                  FloatingActionButton.small(
-                    heroTag: 'fitMapBoundsBtn',
+                  _buildMapFabWithTooltip(
                     tooltip: 'Bao quát toàn bộ (Thẻ & Vị trí hiện tại)',
-                    backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                    onPressed: () {
-                      fitToContent(accessories, locationModel.here);
-                    },
-                    child: const Icon(Icons.crop_free, size: 20),
+                    child: FloatingActionButton.small(
+                      heroTag: 'fitMapBoundsBtn',
+                      backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      onPressed: () {
+                        fitToContent(accessories, locationModel.here);
+                      },
+                      child: const Icon(Icons.crop_free, size: 20),
+                    ),
                   ),
                 ],
               ),
@@ -385,3 +405,94 @@ class _AccessoryMapState extends State<AccessoryMap> {
   }
 }
 
+class _MapSideTooltipButton extends StatefulWidget {
+  final String tooltip;
+  final Widget child;
+
+  const _MapSideTooltipButton({
+    required this.tooltip,
+    required this.child,
+  });
+
+  @override
+  State<_MapSideTooltipButton> createState() => _MapSideTooltipButtonState();
+}
+
+class _MapSideTooltipButtonState extends State<_MapSideTooltipButton> {
+  Timer? _timer;
+  bool _showTooltip = false;
+
+  void _onEnter(_) {
+    _timer?.cancel();
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _showTooltip = true);
+      }
+    });
+  }
+
+  void _onExit(_) {
+    _timer?.cancel();
+    _timer = null;
+    if (_showTooltip) {
+      if (mounted) {
+        setState(() => _showTooltip = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: _showTooltip
+              ? IgnorePointer(
+                  key: const ValueKey(true),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.inverseSurface.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      widget.tooltip,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onInverseSurface,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(key: ValueKey(false)),
+        ),
+        MouseRegion(
+          onEnter: _onEnter,
+          onExit: _onExit,
+          child: widget.child,
+        ),
+      ],
+    );
+  }
+}
