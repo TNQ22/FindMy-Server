@@ -110,12 +110,12 @@ async def fetch_location_reports(
                 p_b64 = rep["payload"]
                 s_code = rep["statusCode"]
 
-                ex_stmt = select(LocationReport).where(
+                ex_stmt = select(LocationReport.id).where(
                     LocationReport.hashed_adv_key == key_b64,
                     LocationReport.payload_b64 == p_b64
-                )
+                ).limit(1)
                 ex_res = await db.execute(ex_stmt)
-                if not ex_res.scalar_one_or_none():
+                if not ex_res.scalar():
                     db.add(
                         LocationReport(
                             user_id=current_user.id,

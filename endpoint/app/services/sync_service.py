@@ -136,12 +136,12 @@ async def run_sync_task() -> dict:
 
                 # Skip if already in DB
                 existing = await db.execute(
-                    select(LocationReport).where(
+                    select(LocationReport.id).where(
                         LocationReport.hashed_adv_key == r_key,
                         LocationReport.payload_b64 == p_b64,
-                    )
+                    ).limit(1)
                 )
-                if existing.scalar_one_or_none():
+                if existing.scalar() is not None:
                     continue
 
                 # ── Decrypt immediately ───────────────────────────────
