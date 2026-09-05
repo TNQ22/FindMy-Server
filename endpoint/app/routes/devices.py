@@ -13,6 +13,7 @@ from app.schemas import (
     ShareDeviceRequest,
     SharedUserInfo,
     TransferOwnershipRequest,
+    CompanionSettingsRequest,
 )
 from app.services.auth_service import get_current_user
 
@@ -472,3 +473,54 @@ async def get_device_location_history(
         items          = items,
         total          = len(items),
     )
+
+
+@router.patch("/{device_id}/companion-settings", response_model=DeviceResponse)
+async def update_device_companion_settings(
+    device_id: int,
+    body: CompanionSettingsRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Configure Master / Companion device settings for separation alerts (Left Behind).
+    """
+    stmt = select(Device).where(Device.id == device_id, Device.user_id == current_user.id)
+    device = (await db.execute(stmt)).scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
+
+    if body.is_master is not None:
+        device.is_master = body.is_master
+        if body.is_master:
+            device.master_device_id = None
+            device.separation_alert_enabled = False
+
+    if body.master_device_id is not None:
+        if body.master_device_id == device.id:
+            raise HTTPException(status_code=400, detail="Thiết bị không thể tự làm thiết bị chủ của chính nó")
+        if body.master_device_id > 0:
+            m_stmt = select(Device).where(Device.id == body.master_device_id, Device.user_id == current_user.id)
+            master = (await db.execute(m_stmt)).scalar_one_or_none()
+            if not master:
+                raise HTTPException(status_code=400, detail="Không tìm thấy thiết bị chủ chỉ định")
+            master.is_master = True
+            master.master_device_id = None
+            master.separation_alert_enabled = False
+            device.master_device_id = body.master_device_id
+            device.is_master = False
+        else:
+            device.master_device_id = None
+
+    if body.separation_alert_enabled is not None:
+        device.separation_alert_enabled = body.separation_alert_enabled
+
+    if body.separation_threshold_meters is not None:
+        device.separation_threshold_meters = max(20.0, min(2000.0, float(body.separation_threshold_meters)))
+
+    if body.ignore_separation_in_safe_zones is not None:
+        device.ignore_separation_in_safe_zones = body.ignore_separation_in_safe_zones
+
+    await db.commit()
+    await db.refresh(device)
+    return device

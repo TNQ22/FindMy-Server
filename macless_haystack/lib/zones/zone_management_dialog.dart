@@ -6,6 +6,7 @@ import 'package:macless_haystack/zones/zone_model.dart';
 import 'package:macless_haystack/zones/zone_registry.dart';
 import 'package:macless_haystack/zones/zone_form_dialog.dart';
 import 'package:macless_haystack/zones/zone_alerts_dialog.dart';
+import 'package:macless_haystack/zones/zone_schedules_dialog.dart';
 
 class ZoneManagementDialog extends StatefulWidget {
   const ZoneManagementDialog({super.key});
@@ -33,7 +34,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
     if (created == true && mounted) {
       AppToast.showText(
         context,
-        'Đã tạo khu vực an toàn mới thành công!',
+        'Đã tạo khu vực cảnh báo mới thành công!',
         icon: Icons.check_circle,
         backgroundColor: Colors.teal.shade800,
       );
@@ -48,7 +49,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
     if (updated == true && mounted) {
       AppToast.showText(
         context,
-        'Đã cập nhật khu vực an toàn thành công!',
+        'Đã cập nhật khu vực cảnh báo thành công!',
         icon: Icons.check_circle,
         backgroundColor: Colors.teal.shade800,
       );
@@ -119,7 +120,7 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                         ),
                         const SizedBox(height: 2),
                         const Text(
-                          'Ranh giới an toàn & cảnh báo thẻ ra vào vùng',
+                          'Ranh giới cảnh báo & theo dõi thẻ ra vào vùng',
                           style: TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],
@@ -295,6 +296,47 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                           ),
                           const SizedBox(width: 2),
                           Tooltip(
+                            message: zone.schedules.isNotEmpty
+                                ? 'Lịch trình nhắc nhở (${zone.schedules.length} lịch đang bật)'
+                                : 'Lịch trình nhắc nhở theo giờ',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => ZoneSchedulesDialog(zone: zone),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Icon(
+                                      Icons.alarm_on,
+                                      size: 18,
+                                      color: zone.schedules.isNotEmpty ? Colors.amber.shade800 : Colors.teal,
+                                    ),
+                                    if (zone.schedules.isNotEmpty)
+                                      Positioned(
+                                        top: -3,
+                                        right: -4,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade900,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Tooltip(
                             message: 'Chỉnh sửa',
                             child: InkWell(
                               borderRadius: BorderRadius.circular(6),
@@ -423,6 +465,42 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                               ),
                                             ),
                                           ),
+                                          if (zone.isSafeZone) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.shade100,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                '🛡️ VÙNG AN TOÀN',
+                                                style: TextStyle(
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.blue.shade900,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          if (zone.schedules.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.shade100,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                '⏰ ${zone.schedules.length} LỊCH HẸN',
+                                                style: TextStyle(
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ],
@@ -481,6 +559,88 @@ class _ZoneManagementDialogState extends State<ZoneManagementDialog> {
                                 ),
                               ],
                             ),
+
+                            // Lịch trình nhắc nhở theo giờ (nếu có bật)
+                            if (zone.schedules.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              const Divider(height: 1),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.alarm_on, size: 14, color: Colors.teal.shade700),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Lịch nhắc nhở theo giờ (${zone.schedules.length}):',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: zone.schedules.map((s) {
+                                  final isLeave = s.ruleType == 'MUST_LEAVE_BY';
+                                  final ruleColor = isLeave ? Colors.orange.shade800 : Colors.purple.shade700;
+                                  final ruleBadge = isLeave ? 'Phải rời' : 'Phải về';
+                                  final daysStr = s.daysOfWeek
+                                      .map((d) => const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][(d - 1) % 7])
+                                      .join(', ');
+
+                                  return InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (ctx) => ZoneSchedulesDialog(zone: zone),
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: ruleColor.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: ruleColor.withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: ruleColor,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              s.targetTime,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '$ruleBadge • ${s.deviceName}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: ruleColor,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '($daysStr)',
+                                            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
 
                             // Devices assigned
                             const SizedBox(height: 10),

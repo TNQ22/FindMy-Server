@@ -249,3 +249,180 @@ async def send_geofence_alert(
         logger.error(f"Failed to send geofence alert email for {device_name}: {e}")
 
 
+async def send_separation_alert(
+    recipient_email: str,
+    companion_name: str,
+    master_name: str,
+    distance: float,
+    threshold: float,
+    lat: float,
+    lon: float,
+    event_time: datetime | None = None,
+):
+    """
+    Sends an email alert when a companion device is separated from its master device.
+    """
+    if not settings.SMTP_HOST or not settings.SMTP_USER:
+        logger.warning(f"SMTP not configured. Skipping separation alert for {companion_name}.")
+        return
+
+    msg = EmailMessage()
+    msg['From'] = settings.SMTP_FROM
+    msg['To'] = recipient_email
+
+    title_text = f"Cảnh Báo Tách Rời: {companion_name} đã tách xa khỏi {master_name}"
+    event_dt = event_time if event_time else datetime.now(timezone.utc)
+    if event_dt.tzinfo is None:
+        event_dt = event_dt.replace(tzinfo=timezone.utc)
+    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
+
+    msg['Subject'] = f"⚠️ {title_text}"
+
+    html_content = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #e67e22; color: #fff; padding: 12px 18px; border-radius: 6px; text-align: center;">
+          <h2 style="margin: 0; font-size: 20px;">⚠️ CẢNH BÁO TÁCH RỜI / BỎ QUÊN ĐỒ ĐẠC</h2>
+        </div>
+        <p style="margin-top: 20px;">Chào bạn,</p>
+        <p>Hệ thống <b>FindMy Server</b> phát hiện thẻ đồng hành <strong>{companion_name}</strong> đã bị tách xa khỏi thiết bị chủ <strong>{master_name}</strong>:</p>
+        
+        <div style="background-color: #fdfefe; border: 1px solid #ebedef; border-left: 5px solid #e67e22; padding: 15px; border-radius: 4px; margin: 15px 0;">
+          <p style="margin: 5px 0;">🏷️ <b>Thẻ đồng hành:</b> {companion_name}</p>
+          <p style="margin: 5px 0;">📱 <b>Thiết bị chủ:</b> {master_name}</p>
+          <p style="margin: 5px 0;">📏 <b>Khoảng cách tách rời:</b> <span style="color: #e67e22; font-weight: bold;">{distance:.1f} m</span> (Ngưỡng: {int(threshold)}m)</p>
+          <p style="margin: 5px 0;">🌐 <b>Tọa độ vị trí thẻ:</b> {lat:.6f}, {lon:.6f}</p>
+          <p style="margin: 5px 0;">🕒 <b>Thời gian phát hiện:</b> {time_str}</p>
+        </div>
+
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="{maps_url}" style="background-color: #e67e22; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+            📍 Định Vị Thẻ Trên Google Maps
+          </a>
+        </div>
+
+        <hr style="border: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 12px; color: #999;">Đây là thông báo tự động từ hệ thống FindMy Server. Vui lòng không trả lời email này.</p>
+      </body>
+    </html>
+    """
+
+    msg.set_content(
+        f"{title_text}\n\n"
+        f"Thẻ đồng hành: {companion_name}\n"
+        f"Thiết bị chủ: {master_name}\n"
+        f"Khoảng cách tách rời: {distance:.1f} m (Ngưỡng: {int(threshold)}m)\n"
+        f"Tọa độ thẻ: {lat:.6f}, {lon:.6f}\n"
+        f"Thời gian: {time_str}\n"
+        f"Xem bản đồ: {maps_url}\n"
+    )
+    msg.add_alternative(html_content, subtype='html')
+
+    try:
+        await aiosmtplib.send(
+            msg,
+            hostname=settings.SMTP_HOST,
+            port=settings.SMTP_PORT,
+            username=settings.SMTP_USER,
+            password=settings.SMTP_PASS,
+            use_tls=(settings.SMTP_PORT == 465),
+            start_tls=(settings.SMTP_PORT == 587),
+        )
+        logger.info(f"Successfully sent separation alert for {companion_name} to {recipient_email}")
+    except Exception as e:
+        logger.error(f"Failed to send separation alert email for {companion_name}: {e}")
+
+
+async def send_zone_schedule_alert(
+    recipient_email: str,
+    device_name: str,
+    zone_name: str,
+    rule_type: str,
+    target_time: str,
+    lat: float | None = None,
+    lon: float | None = None,
+    event_time: datetime | None = None,
+):
+    """
+    Sends an email alert when a zone schedule rule triggers (MUST_LEAVE_BY or MUST_ENTER_BY).
+    """
+    if not settings.SMTP_HOST or not settings.SMTP_USER:
+        logger.warning(f"SMTP not configured. Skipping zone schedule alert for {device_name}.")
+        return
+
+    msg = EmailMessage()
+    msg['From'] = settings.SMTP_FROM
+    msg['To'] = recipient_email
+
+    is_leave_rule = rule_type == "MUST_LEAVE_BY"
+    badge_color = "#e74c3c" if is_leave_rule else "#8e44ad"
+    action_desc = f"chưa rời khỏi khu vực {zone_name} trước {target_time}" if is_leave_rule else f"chưa về tới khu vực {zone_name} trước {target_time}"
+    title_text = f"Nhắc Nhở Quên Đồ: {device_name} {action_desc}" if is_leave_rule else f"Cảnh Báo Thất Lạc / Chưa Về: {device_name} {action_desc}"
+    
+    event_dt = event_time if event_time else datetime.now(timezone.utc)
+    if event_dt.tzinfo is None:
+        event_dt = event_dt.replace(tzinfo=timezone.utc)
+    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+
+    maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}" if lat and lon else ""
+
+    msg['Subject'] = f"⏰ {title_text}"
+
+    maps_btn = f"""
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="{maps_url}" style="background-color: {badge_color}; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+            📍 Xem Vị Trí Hiện Tại Trên Google Maps
+          </a>
+        </div>
+    """ if maps_url else ""
+
+    html_content = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: {badge_color}; color: #fff; padding: 12px 18px; border-radius: 6px; text-align: center;">
+          <h2 style="margin: 0; font-size: 20px;">⏰ {title_text}</h2>
+        </div>
+        <p style="margin-top: 20px;">Chào bạn,</p>
+        <p>Hệ thống <b>FindMy Server</b> kiểm tra lịch trình và phát hiện:</p>
+        
+        <div style="background-color: #fdfefe; border: 1px solid #ebedef; border-left: 5px solid {badge_color}; padding: 15px; border-radius: 4px; margin: 15px 0;">
+          <p style="margin: 5px 0;">🏷️ <b>Thiết bị:</b> {device_name}</p>
+          <p style="margin: 5px 0;">🛡️ <b>Khu vực:</b> {zone_name}</p>
+          <p style="margin: 5px 0;">⚡ <b>Quy định:</b> <span style="color: {badge_color}; font-weight: bold;">{ 'Phải rời khỏi trước' if is_leave_rule else 'Phải có mặt trước' } {target_time}</span></p>
+          <p style="margin: 5px 0;">🕒 <b>Thời gian kiểm tra:</b> {time_str}</p>
+        </div>
+
+        {maps_btn}
+
+        <hr style="border: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 12px; color: #999;">Đây là thông báo tự động từ hệ thống FindMy Server. Vui lòng không trả lời email này.</p>
+      </body>
+    </html>
+    """
+
+    msg.set_content(
+        f"{title_text}\n\n"
+        f"Thiết bị: {device_name}\n"
+        f"Khu vực: {zone_name}\n"
+        f"Tình trạng: {action_desc}\n"
+        f"Thời gian: {time_str}\n"
+    )
+    msg.add_alternative(html_content, subtype='html')
+
+    try:
+        await aiosmtplib.send(
+            msg,
+            hostname=settings.SMTP_HOST,
+            port=settings.SMTP_PORT,
+            username=settings.SMTP_USER,
+            password=settings.SMTP_PASS,
+            use_tls=(settings.SMTP_PORT == 465),
+            start_tls=(settings.SMTP_PORT == 587),
+        )
+        logger.info(f"Successfully sent zone schedule alert for {device_name} to {recipient_email}")
+    except Exception as e:
+        logger.error(f"Failed to send zone schedule alert email for {device_name}: {e}")
+
+
+

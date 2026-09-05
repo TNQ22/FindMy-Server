@@ -67,16 +67,23 @@ def run_direct_sqlite_migration():
                 cursor.execute("DROP TABLE icloud_accounts;")
                 cursor.execute("ALTER TABLE icloud_accounts_new RENAME TO icloud_accounts;")
 
-        # ── devices: new location columns & ownership ─────────────────────────
+        # ── devices: new location columns, ownership, & companion settings ─────
         cursor.execute("PRAGMA table_info(devices);")
         dev_cols = [row[1] for row in cursor.fetchall()]
         if dev_cols:
             for col, col_type in [
-                ("last_lat",      "REAL"),
-                ("last_lon",      "REAL"),
-                ("last_seen_at",  "DATETIME"),
-                ("last_battery",  "VARCHAR(50)"),
-                ("owner_user_id", "INTEGER"),
+                ("last_lat",                        "REAL"),
+                ("last_lon",                        "REAL"),
+                ("last_seen_at",                    "DATETIME"),
+                ("last_battery",                    "VARCHAR(50)"),
+                ("owner_user_id",                   "INTEGER"),
+                ("is_master",                       "BOOLEAN DEFAULT 0"),
+                ("master_device_id",                "INTEGER"),
+                ("separation_alert_enabled",        "BOOLEAN DEFAULT 0"),
+                ("separation_threshold_meters",      "REAL DEFAULT 150.0"),
+                ("ignore_separation_in_safe_zones", "BOOLEAN DEFAULT 1"),
+                ("last_separation_alert_time",      "DATETIME"),
+                ("last_separation_distance",        "REAL"),
             ]:
                 if col not in dev_cols:
                     print(f"Direct Migration: Adding {col} column to devices...")
@@ -112,6 +119,7 @@ def run_direct_sqlite_migration():
                 alert_on_enter BOOLEAN DEFAULT 0,
                 cooldown_minutes INTEGER DEFAULT 15,
                 is_active BOOLEAN DEFAULT 1,
+                is_safe_zone BOOLEAN DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES users(id)
@@ -129,6 +137,9 @@ def run_direct_sqlite_migration():
             if "polygon_points" not in zone_cols:
                 print("Direct Migration: Adding polygon_points column to zones...")
                 cursor.execute("ALTER TABLE zones ADD COLUMN polygon_points TEXT;")
+            if "is_safe_zone" not in zone_cols:
+                print("Direct Migration: Adding is_safe_zone column to zones...")
+                cursor.execute("ALTER TABLE zones ADD COLUMN is_safe_zone BOOLEAN DEFAULT 1;")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS zone_devices (
@@ -174,6 +185,28 @@ def run_direct_sqlite_migration():
         cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_zone_id ON zone_alerts (zone_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_device_id ON zone_alerts (device_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_alerts_created_at ON zone_alerts (created_at);")
+
+        # ── zone_schedules table ──────────────────────────────────────────────
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS zone_schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                zone_id INTEGER NOT NULL,
+                device_id INTEGER,
+                user_id INTEGER NOT NULL,
+                rule_type VARCHAR(30) DEFAULT 'MUST_LEAVE_BY',
+                target_time VARCHAR(10) NOT NULL,
+                days_of_week VARCHAR(50) DEFAULT '[1,2,3,4,5,6,7]',
+                is_active BOOLEAN DEFAULT 1,
+                last_triggered_date VARCHAR(20),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(zone_id) REFERENCES zones(id) ON DELETE CASCADE,
+                FOREIGN KEY(device_id) REFERENCES devices(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_schedules_id ON zone_schedules (id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_schedules_zone_id ON zone_schedules (zone_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_zone_schedules_user_id ON zone_schedules (user_id);")
 
         conn.commit()
         conn.close()

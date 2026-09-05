@@ -65,16 +65,35 @@ class AccessoryListItemState extends State<AccessoryListItem> {
             color: widget.accessory.color,
           ),
         ),
-        title: Text(
-          widget.accessory.name +
-              (widget.accessory.isActive ? '' : ' (inactive)'),
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: widget.accessory.isActive
-                ? Theme.of(context).colorScheme.onSurface
-                : Theme.of(context).disabledColor,
-          ),
-          overflow: TextOverflow.ellipsis,
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                widget.accessory.name +
+                    (widget.accessory.isActive ? '' : ' (inactive)'),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: widget.accessory.isActive
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(context).disabledColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (widget.accessory.isMaster) ...[
+              const SizedBox(width: 4),
+              const Tooltip(
+                message: 'Thiết bị chủ (iPhone)',
+                child: Text('📱', style: TextStyle(fontSize: 12)),
+              ),
+            ] else if (widget.accessory.masterDeviceId != null) ...[
+              const SizedBox(width: 4),
+              const Tooltip(
+                message: 'Tag đồng hành (đi kèm thiết bị chủ)',
+                child: Text('🔗', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ],
         ),
         subtitle: Text(
           dateString,

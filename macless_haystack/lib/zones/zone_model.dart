@@ -47,9 +47,11 @@ class ZoneItem {
   final bool alertOnEnter;
   final int cooldownMinutes;
   final bool isActive;
+  final bool isSafeZone;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final List<ZoneDeviceItem> devices;
+  final List<ZoneScheduleItem> schedules;
 
   ZoneItem({
     required this.id,
@@ -64,9 +66,11 @@ class ZoneItem {
     this.alertOnEnter = false,
     this.cooldownMinutes = 15,
     this.isActive = true,
+    this.isSafeZone = true,
     this.createdAt,
     this.updatedAt,
     this.devices = const [],
+    this.schedules = const [],
   });
 
   LatLng get center => LatLng(latitude, longitude);
@@ -76,6 +80,13 @@ class ZoneItem {
     if (json['devices'] is List) {
       devList = (json['devices'] as List)
           .map((d) => ZoneDeviceItem.fromJson(d as Map<String, dynamic>))
+          .toList();
+    }
+
+    var schedList = <ZoneScheduleItem>[];
+    if (json['schedules'] is List) {
+      schedList = (json['schedules'] as List)
+          .map((s) => ZoneScheduleItem.fromJson(s as Map<String, dynamic>))
           .toList();
     }
 
@@ -102,6 +113,7 @@ class ZoneItem {
       alertOnEnter: json['alert_on_enter'] as bool? ?? false,
       cooldownMinutes: json['cooldown_minutes'] as int? ?? 15,
       isActive: json['is_active'] as bool? ?? true,
+      isSafeZone: json['is_safe_zone'] as bool? ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())?.toLocal()
           : null,
@@ -109,6 +121,7 @@ class ZoneItem {
           ? DateTime.tryParse(json['updated_at'].toString())?.toLocal()
           : null,
       devices: devList,
+      schedules: schedList,
     );
   }
 }
@@ -152,6 +165,53 @@ class ZoneAlertItem {
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())?.toLocal() ?? DateTime.now()
           : DateTime.now(),
+    );
+  }
+}
+
+class ZoneScheduleItem {
+  final int id;
+  final int zoneId;
+  final int? deviceId;
+  final String deviceName;
+  final String ruleType; // MUST_LEAVE_BY, MUST_ENTER_BY
+  final String targetTime; // "08:00"
+  final List<int> daysOfWeek; // 1=Mon..7=Sun
+  final bool isActive;
+  final String? lastTriggeredDate;
+  final DateTime? createdAt;
+
+  ZoneScheduleItem({
+    required this.id,
+    required this.zoneId,
+    this.deviceId,
+    this.deviceName = 'Tất cả thiết bị',
+    this.ruleType = 'MUST_LEAVE_BY',
+    required this.targetTime,
+    this.daysOfWeek = const [1, 2, 3, 4, 5, 6, 7],
+    this.isActive = true,
+    this.lastTriggeredDate,
+    this.createdAt,
+  });
+
+  factory ZoneScheduleItem.fromJson(Map<String, dynamic> json) {
+    var days = <int>[];
+    if (json['days_of_week'] is List) {
+      days = (json['days_of_week'] as List).map((e) => e as int).toList();
+    }
+    return ZoneScheduleItem(
+      id: json['id'] as int? ?? 0,
+      zoneId: json['zone_id'] as int? ?? 0,
+      deviceId: json['device_id'] as int?,
+      deviceName: json['device_name'] as String? ?? 'Tất cả thiết bị',
+      ruleType: json['rule_type'] as String? ?? 'MUST_LEAVE_BY',
+      targetTime: json['target_time'] as String? ?? '08:00',
+      daysOfWeek: days.isNotEmpty ? days : const [1, 2, 3, 4, 5, 6, 7],
+      isActive: json['is_active'] as bool? ?? true,
+      lastTriggeredDate: json['last_triggered_date'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())?.toLocal()
+          : null,
     );
   }
 }

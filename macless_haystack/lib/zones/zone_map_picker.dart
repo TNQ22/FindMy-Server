@@ -334,7 +334,7 @@ class _ZoneMapPickerState extends State<ZoneMapPicker> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chọn & Vẽ Vùng An Toàn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text('Chọn & Vẽ Khu Vực Cảnh Báo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),

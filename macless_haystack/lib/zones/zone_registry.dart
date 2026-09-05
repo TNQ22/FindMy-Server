@@ -127,6 +127,7 @@ class ZoneRegistry extends ChangeNotifier {
     required bool alertOnEnter,
     required int cooldownMinutes,
     required bool isActive,
+    bool isSafeZone = true,
     String shapeType = 'circle',
     List<LatLng>? polygonPoints,
     List<int>? deviceIds,
@@ -146,6 +147,7 @@ class ZoneRegistry extends ChangeNotifier {
         'alert_on_enter': alertOnEnter,
         'cooldown_minutes': cooldownMinutes,
         'is_active': isActive,
+        'is_safe_zone': isSafeZone,
         'device_ids': deviceIds ?? [],
         'hashed_adv_keys': hashedAdvKeys ?? [],
       };
@@ -178,6 +180,7 @@ class ZoneRegistry extends ChangeNotifier {
     bool? alertOnEnter,
     int? cooldownMinutes,
     bool? isActive,
+    bool? isSafeZone,
     List<int>? deviceIds,
     List<String>? hashedAdvKeys,
   }) async {
@@ -195,6 +198,7 @@ class ZoneRegistry extends ChangeNotifier {
       if (alertOnEnter != null) payload['alert_on_enter'] = alertOnEnter;
       if (cooldownMinutes != null) payload['cooldown_minutes'] = cooldownMinutes;
       if (isActive != null) payload['is_active'] = isActive;
+      if (isSafeZone != null) payload['is_safe_zone'] = isSafeZone;
       if (deviceIds != null) payload['device_ids'] = deviceIds;
       if (hashedAdvKeys != null) payload['hashed_adv_keys'] = hashedAdvKeys;
 
@@ -291,5 +295,90 @@ class ZoneRegistry extends ChangeNotifier {
       debugPrint('Error clearing alerts: $e');
     }
     return false;
+  }
+
+  Future<List<ZoneScheduleItem>> fetchZoneSchedules(int zoneId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/api/zones/$zoneId/schedules'),
+        headers: _headers,
+      );
+      if (res.statusCode == 200) {
+        List data = jsonDecode(res.body);
+        return data
+            .map((s) => ZoneScheduleItem.fromJson(s as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching zone schedules: $e');
+    }
+    return [];
+  }
+
+  Future<bool> createZoneSchedule({
+    required int zoneId,
+    int? deviceId,
+    required String ruleType,
+    required String targetTime,
+    List<int>? daysOfWeek,
+    bool isActive = true,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_baseUrl/api/zones/$zoneId/schedules'),
+        headers: _headers,
+        body: jsonEncode({
+          if (deviceId != null) 'device_id': deviceId,
+          'rule_type': ruleType,
+          'target_time': targetTime,
+          'days_of_week': daysOfWeek ?? [1, 2, 3, 4, 5, 6, 7],
+          'is_active': isActive,
+        }),
+      );
+      return res.statusCode == 201;
+    } catch (e) {
+      debugPrint('Error creating zone schedule: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateZoneSchedule({
+    required int scheduleId,
+    int? deviceId,
+    String? ruleType,
+    String? targetTime,
+    List<int>? daysOfWeek,
+    bool? isActive,
+  }) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$_baseUrl/api/zones/schedules/$scheduleId'),
+        headers: _headers,
+        body: jsonEncode({
+          if (deviceId != null) 'device_id': deviceId,
+          if (ruleType != null) 'rule_type': ruleType,
+          if (targetTime != null) 'target_time': targetTime,
+          if (daysOfWeek != null) 'days_of_week': daysOfWeek,
+          if (isActive != null) 'is_active': isActive,
+        }),
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error updating zone schedule: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteZoneSchedule(int scheduleId) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$_baseUrl/api/zones/schedules/$scheduleId'),
+        headers: _headers,
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error deleting zone schedule: $e');
+      return false;
+    }
   }
 }

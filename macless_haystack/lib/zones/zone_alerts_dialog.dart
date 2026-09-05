@@ -95,7 +95,7 @@ class _ZoneAlertsDialogState extends State<ZoneAlertsDialog> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Lịch sử các sự kiện ra/vào khu vực an toàn',
+                          'Lịch sử các sự kiện ra/vào khu vực cảnh báo',
                           style: TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],

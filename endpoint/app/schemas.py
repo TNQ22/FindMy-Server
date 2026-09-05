@@ -94,8 +94,15 @@ class DeviceResponse(BaseModel):
     last_battery: str | None = None
     owner_user_id: Optional[int] = None
     is_owner: bool = True
+    is_master: bool = False
+    master_device_id: Optional[int] = None
+    separation_alert_enabled: bool = False
+    separation_threshold_meters: float = 150.0
+    ignore_separation_in_safe_zones: bool = True
+    last_separation_alert_time: Optional[datetime] = None
+    last_separation_distance: Optional[float] = None
 
-    @field_validator('created_at', 'last_seen_at', mode='after')
+    @field_validator('created_at', 'last_seen_at', 'last_separation_alert_time', mode='after')
     @classmethod
     def set_utc(cls, v):
         if isinstance(v, datetime) and v.tzinfo is None:
@@ -190,6 +197,7 @@ class ZoneCreateRequest(BaseModel):
     alert_on_enter: bool = False
     cooldown_minutes: int = 15
     is_active: bool = True
+    is_safe_zone: bool = True
     device_ids: list[int] = []
     hashed_adv_keys: list[str] = []
 
@@ -204,8 +212,42 @@ class ZoneUpdateRequest(BaseModel):
     alert_on_enter: Optional[bool] = None
     cooldown_minutes: Optional[int] = None
     is_active: Optional[bool] = None
+    is_safe_zone: Optional[bool] = None
     device_ids: Optional[list[int]] = None
     hashed_adv_keys: Optional[list[str]] = None
+
+class ZoneScheduleCreate(BaseModel):
+    device_id: Optional[int] = None
+    rule_type: str = "MUST_LEAVE_BY"  # MUST_LEAVE_BY, MUST_ENTER_BY
+    target_time: str  # "HH:MM" e.g. "08:00"
+    days_of_week: Optional[list[int]] = [1, 2, 3, 4, 5, 6, 7]  # 1=Mon..7=Sun
+    is_active: bool = True
+
+
+class ZoneScheduleUpdate(BaseModel):
+    device_id: Optional[int] = None
+    rule_type: Optional[str] = None
+    target_time: Optional[str] = None
+    days_of_week: Optional[list[int]] = None
+    is_active: Optional[bool] = None
+
+
+class ZoneScheduleResponse(BaseModel):
+    id: int
+    zone_id: int
+    device_id: Optional[int] = None
+    device_name: Optional[str] = None
+    user_id: int
+    rule_type: str
+    target_time: str
+    days_of_week: list[int]
+    is_active: bool
+    last_triggered_date: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 class ZoneResponse(BaseModel):
     id: int
@@ -220,9 +262,11 @@ class ZoneResponse(BaseModel):
     alert_on_enter: bool
     cooldown_minutes: int
     is_active: bool
+    is_safe_zone: bool = True
     created_at: datetime
     updated_at: datetime
     devices: list[ZoneDeviceItemResponse] = []
+    schedules: list[ZoneScheduleResponse] = []
 
     class Config:
         from_attributes = True
@@ -245,5 +289,14 @@ class ZoneAlertItemResponse(BaseModel):
 class ZoneAlertListResponse(BaseModel):
     items: list[ZoneAlertItemResponse]
     total: int
+
+
+class CompanionSettingsRequest(BaseModel):
+    is_master: Optional[bool] = None
+    master_device_id: Optional[int] = None
+    separation_alert_enabled: Optional[bool] = None
+    separation_threshold_meters: Optional[float] = None
+    ignore_separation_in_safe_zones: Optional[bool] = None
+
 
 

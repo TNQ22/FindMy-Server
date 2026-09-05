@@ -15,6 +15,8 @@ from app.services.notification_service import (
     dispatch_icloud_status_notification,
 )
 from app.services.geofence_service import evaluate_device_geofence
+from app.services.separation_service import evaluate_device_separation
+from app.services.schedule_service import check_zone_schedules
 
 logger = logging.getLogger("sync_service")
 
@@ -232,6 +234,15 @@ async def run_sync_task() -> dict:
                             rep_ts,
                         )
 
+                        # Evaluate companion / master separation alerts
+                        await evaluate_device_separation(
+                            db,
+                            dev_obj,
+                            dec_result["latitude"],
+                            dec_result["longitude"],
+                            rep_ts,
+                        )
+
             # Reset error/alert state on successful sync
             if account_rec.is_alerted or account_rec.last_error:
                 account_rec.is_alerted = False
@@ -264,6 +275,14 @@ async def run_sync_task() -> dict:
     }
 
 
+async def run_zone_schedules_task():
+    try:
+        async with AsyncSessionLocal() as db:
+            await check_zone_schedules(db)
+    except Exception as e:
+        logger.error(f"Error in background zone schedules task: {e}")
+
+
 def start_sync_scheduler():
     if not scheduler.running:
         scheduler.add_job(
@@ -273,8 +292,16 @@ def start_sync_scheduler():
             id="icloud_sync_job",
             replace_existing=True,
         )
+        # Check zone schedules every 2 minutes for departure / arrival routine reminders
+        scheduler.add_job(
+            run_zone_schedules_task,
+            "interval",
+            minutes=2,
+            id="zone_schedule_job",
+            replace_existing=True,
+        )
         scheduler.start()
-        logger.info(f"Background Sync Scheduler started (Interval: {settings.SYNC_INTERVAL_MINUTES} minutes).")
+        logger.info(f"Background Sync Scheduler started (Interval: {settings.SYNC_INTERVAL_MINUTES} minutes, Schedules: 2 min).")
 
 
 def stop_sync_scheduler():

@@ -280,6 +280,11 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                         ),
                       ),
 
+                      const SizedBox(height: 10),
+
+                      // Companion Settings Card
+                      _buildCompanionSettingsCard(),
+
                       const SizedBox(height: 20),
                       const Divider(),
                       const SizedBox(height: 12),
@@ -307,6 +312,16 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                                             listen: false);
                                     accessoryRegistry.editAccessory(
                                         widget.accessory, newAccessory);
+                                    if (newAccessory.serverId != null) {
+                                      accessoryRegistry.updateCompanionSettings(
+                                        newAccessory.serverId!,
+                                        isMaster: newAccessory.isMaster,
+                                        masterDeviceId: newAccessory.masterDeviceId,
+                                        separationAlertEnabled: newAccessory.separationAlertEnabled,
+                                        separationThresholdMeters: newAccessory.separationThresholdMeters,
+                                        ignoreSeparationInSafeZones: newAccessory.ignoreSeparationInSafeZones,
+                                      );
+                                    }
                                     AppToast.showText(
                                       context,
                                       'Đã lưu thay đổi cho "${newAccessory.name}"',
@@ -463,7 +478,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
         icon = Icons.battery_unknown;
         color = Colors.grey;
     }
-
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -471,9 +485,187 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
         side: BorderSide(color: Colors.grey.withAlpha(40)),
       ),
       child: ListTile(
-        leading: Icon(icon, color: color, size: 26),
-        title: const Text('Trạng thái pin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        subtitle: Text(text, style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.w600)),
+        leading: Icon(icon, color: color, size: 24),
+        title: const Text('Trạng thái Pin:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        subtitle: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+      ),
+    );
+  }
+
+  Widget _buildCompanionSettingsCard() {
+    final registry = Provider.of<AccessoryRegistry>(context, listen: false);
+    final candidateMasters = registry.accessories.where((a) {
+      final isSelf = a.serverId == newAccessory.serverId ||
+          (a.serverId == null && a.hashedPublicKey == newAccessory.hashedPublicKey);
+      return !isSelf;
+    }).toList();
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blueGrey.withAlpha(50)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.devices_other, color: Colors.teal.shade700, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Thiết Bị Chủ & Tag Đồng Hành',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Cảnh báo khi tag bị bỏ quên hoặc tách xa khỏi iPhone/thiết bị chủ.',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+            const Divider(height: 16),
+
+            // 1. Is Master Switch
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: newAccessory.isMaster,
+              activeColor: Colors.teal,
+              title: const Text(
+                'Đặt làm Thiết bị chủ (iPhone / Điện thoại)',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              subtitle: const Text(
+                'Các tag khác có thể chọn đi kèm theo thiết bị này',
+                style: TextStyle(fontSize: 11),
+              ),
+              onChanged: (checked) {
+                setState(() {
+                  newAccessory.isMaster = checked;
+                  if (checked) {
+                    newAccessory.masterDeviceId = null;
+                    newAccessory.separationAlertEnabled = false;
+                  }
+                });
+              },
+            ),
+
+            // 2. If not master: Companion configuration
+            if (!newAccessory.isMaster) ...[
+              const SizedBox(height: 6),
+              DropdownButtonFormField<int?>(
+                value: newAccessory.masterDeviceId,
+                decoration: InputDecoration(
+                  labelText: 'Thiết bị chủ đi kèm',
+                  labelStyle: const TextStyle(fontSize: 12),
+                  prefixIcon: const Icon(Icons.link, size: 18),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Không có (Thiết bị độc lập)', style: TextStyle(fontSize: 13)),
+                  ),
+                  ...candidateMasters.map((m) {
+                    final label = m.isMaster
+                        ? '📱 ${m.name} (Đang là Thiết bị chủ)'
+                        : '${m.name} (Tự động bật Thiết bị chủ)';
+                    return DropdownMenuItem<int?>(
+                      value: m.serverId,
+                      child: Text(label, style: const TextStyle(fontSize: 13)),
+                    );
+                  }),
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    newAccessory.masterDeviceId = val;
+                    if (val == null) {
+                      newAccessory.separationAlertEnabled = false;
+                    }
+                  });
+                },
+              ),
+
+              if (newAccessory.masterDeviceId != null) ...[
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: newAccessory.separationAlertEnabled,
+                  activeColor: Colors.amber.shade800,
+                  title: const Text(
+                    'Cảnh báo khi tách rời khỏi thiết bị chủ',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Gửi thông báo nếu để quên hoặc làm rơi',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  onChanged: (checked) {
+                    setState(() {
+                      newAccessory.separationAlertEnabled = checked;
+                    });
+                  },
+                ),
+
+                if (newAccessory.separationAlertEnabled) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Khoảng cách tách rời:', style: TextStyle(fontSize: 12)),
+                            Text(
+                              '${newAccessory.separationThresholdMeters.toInt()} mét',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: newAccessory.separationThresholdMeters.clamp(50.0, 500.0),
+                          min: 50.0,
+                          max: 500.0,
+                          divisions: 18,
+                          label: '${newAccessory.separationThresholdMeters.toInt()}m',
+                          activeColor: Colors.amber.shade800,
+                          onChanged: (val) {
+                            setState(() {
+                              newAccessory.separationThresholdMeters = val;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: newAccessory.ignoreSeparationInSafeZones,
+                    activeColor: Colors.teal,
+                    title: const Text(
+                      'Bỏ qua cảnh báo khi ở trong Vùng an toàn',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    subtitle: const Text(
+                      'Không gửi thông báo nếu ở trong Vùng an toàn đã thiết lập',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onChanged: (checked) {
+                      setState(() {
+                        newAccessory.ignoreSeparationInSafeZones = checked;
+                      });
+                    },
+                  ),
+                ],
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }

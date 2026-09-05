@@ -282,6 +282,16 @@ class AccessoryRegistry extends ChangeNotifier {
             acc.lastBatteryStatus = _parseBattery(lastBattery);
           }
 
+          // Companion / Separation settings
+          acc.serverId = item['id'] as int?;
+          acc.isMaster = item['is_master'] == true;
+          acc.masterDeviceId = item['master_device_id'] as int?;
+          acc.separationAlertEnabled = item['separation_alert_enabled'] == true;
+          acc.separationThresholdMeters =
+              (item['separation_threshold_meters'] as num?)?.toDouble() ?? 150.0;
+          acc.ignoreSeparationInSafeZones =
+              item['ignore_separation_in_safe_zones'] != false;
+
           syncedAccessories.add(acc);
           updated = true;
         }
@@ -538,5 +548,48 @@ class AccessoryRegistry extends ChangeNotifier {
       return AccessoryBatteryStatus.values.byName(val);
     } catch (_) {}
     return null;
+  }
+
+  /// Updates Master / Companion settings on the backend
+  Future<bool> updateCompanionSettings(
+    int deviceId, {
+    bool? isMaster,
+    int? masterDeviceId,
+    bool? separationAlertEnabled,
+    double? separationThresholdMeters,
+    bool? ignoreSeparationInSafeZones,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {};
+      if (isMaster != null) body['is_master'] = isMaster;
+      if (masterDeviceId != null) body['master_device_id'] = masterDeviceId;
+      if (separationAlertEnabled != null) {
+        body['separation_alert_enabled'] = separationAlertEnabled;
+      }
+      if (separationThresholdMeters != null) {
+        body['separation_threshold_meters'] = separationThresholdMeters;
+      }
+      if (ignoreSeparationInSafeZones != null) {
+        body['ignore_separation_in_safe_zones'] = ignoreSeparationInSafeZones;
+      }
+
+      final res = await http.patch(
+        Uri.parse('$_baseUrl/api/devices/$deviceId/companion-settings'),
+        headers: _authHeaders,
+        body: jsonEncode(body),
+      );
+
+      if (res.statusCode == 200) {
+        // Refresh devices from backend
+        await syncWithBackendServer();
+        return true;
+      } else {
+        logger.e('Failed to update companion settings: ${res.statusCode} ${res.body}');
+        return false;
+      }
+    } catch (e) {
+      logger.e('Error updating companion settings: $e');
+      return false;
+    }
   }
 }

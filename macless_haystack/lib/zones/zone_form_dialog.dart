@@ -31,6 +31,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
   late bool _alertOnEnter;
   late int _cooldownMinutes;
   late bool _isActive;
+  late bool _isSafeZone;
   late Set<String> _selectedHashedKeys;
 
   bool _submitting = false;
@@ -52,6 +53,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
     _alertOnEnter = z?.alertOnEnter ?? false;
     _cooldownMinutes = z?.cooldownMinutes ?? 15;
     _isActive = z?.isActive ?? true;
+    _isSafeZone = z?.isSafeZone ?? true;
 
     _selectedHashedKeys = z != null ? z.devices.map((d) => d.hashedAdvKey).toSet() : {};
   }
@@ -153,6 +155,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
         alertOnEnter: _alertOnEnter,
         cooldownMinutes: _cooldownMinutes,
         isActive: _isActive,
+        isSafeZone: _isSafeZone,
         hashedAdvKeys: _selectedHashedKeys.toList(),
       );
     } else {
@@ -168,6 +171,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
         alertOnEnter: _alertOnEnter,
         cooldownMinutes: _cooldownMinutes,
         isActive: _isActive,
+        isSafeZone: _isSafeZone,
         hashedAdvKeys: _selectedHashedKeys.toList(),
       );
     }
@@ -239,7 +243,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isEditing ? 'Chỉnh Sửa Khu Vực An Toàn' : 'Tạo Khu Vực An Toàn Mới',
+                          isEditing ? 'Chỉnh Sửa Khu Vực Cảnh Báo' : 'Tạo Khu Vực Cảnh Báo Mới',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: isMobile ? 16 : 18,
@@ -276,7 +280,8 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
               // Form fields
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  clipBehavior: Clip.none,
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
                   children: [
                     // Tên khu vực
                     TextFormField(
@@ -286,6 +291,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                         hintText: 'VD: Nhà riêng, Công ty, Bãi gửi xe...',
                         prefixIcon: const Icon(Icons.label_outline),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                       ),
                       validator: (val) => (val == null || val.trim().isEmpty) ? 'Vui lòng nhập tên khu vực' : null,
                     ),
@@ -414,7 +420,7 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                       contentPadding: EdgeInsets.zero,
                       secondary: const Icon(Icons.exit_to_app, color: Colors.red),
                       title: const Text('Cảnh báo khi RỜI KHỎI (Exit)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Gửi thông báo khi thẻ di chuyển ra ngoài vùng an toàn', style: TextStyle(fontSize: 11)),
+                      subtitle: const Text('Gửi thông báo khi thẻ di chuyển ra ngoài khu vực này', style: TextStyle(fontSize: 11)),
                       value: _alertOnExit,
                       onChanged: (val) => setState(() => _alertOnExit = val),
                     ),
@@ -423,9 +429,18 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                       contentPadding: EdgeInsets.zero,
                       secondary: const Icon(Icons.login, color: Colors.green),
                       title: const Text('Cảnh báo khi ĐI VÀO (Enter)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Gửi thông báo khi thẻ di chuyển vào lại vùng an toàn', style: TextStyle(fontSize: 11)),
+                      subtitle: const Text('Gửi thông báo khi thẻ di chuyển vào lại khu vực này', style: TextStyle(fontSize: 11)),
                       value: _alertOnEnter,
                       onChanged: (val) => setState(() => _alertOnEnter = val),
+                    ),
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.shield_outlined, color: Colors.teal),
+                      title: const Text('Đánh dấu là Vùng an toàn (Nhà / Cơ quan)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Không gửi cảnh báo khi tách rời khỏi thiết bị chủ (quên đồ) khi ở trong khu vực này', style: TextStyle(fontSize: 11)),
+                      value: _isSafeZone,
+                      onChanged: (val) => setState(() => _isSafeZone = val),
                     ),
                     const SizedBox(height: 10),
 

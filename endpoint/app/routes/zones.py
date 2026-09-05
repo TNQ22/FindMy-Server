@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import User, Device, Zone, ZoneDevice, ZoneAlert
+from app.models import User, Device, Zone, ZoneDevice, ZoneAlert, ZoneSchedule
 from app.schemas import (
     ZoneCreateRequest,
     ZoneUpdateRequest,
@@ -15,6 +15,9 @@ from app.schemas import (
     ZoneDeviceItemResponse,
     ZoneAlertItemResponse,
     ZoneAlertListResponse,
+    ZoneScheduleCreate,
+    ZoneScheduleUpdate,
+    ZoneScheduleResponse,
     PolygonPoint,
 )
 from app.services.auth_service import get_current_user
@@ -54,6 +57,39 @@ def _format_zone_response(zone: Zone) -> ZoneResponse:
         except Exception:
             poly_points = None
 
+    schedules_data: list[ZoneScheduleResponse] = []
+    for s in getattr(zone, "schedules", []) or []:
+        if not s.is_active:
+            continue
+        days = []
+        try:
+            days = json.loads(s.days_of_week) if isinstance(s.days_of_week, str) else (s.days_of_week or [1, 2, 3, 4, 5, 6, 7])
+        except Exception:
+            days = [1, 2, 3, 4, 5, 6, 7]
+
+        dev_name = "Tất cả thiết bị"
+        if s.device_id:
+            for zd in getattr(zone, "zone_devices", []) or []:
+                if zd.device and zd.device.id == s.device_id:
+                    dev_name = zd.device.name
+                    break
+
+        schedules_data.append(
+            ZoneScheduleResponse(
+                id=s.id,
+                zone_id=s.zone_id,
+                device_id=s.device_id,
+                device_name=dev_name,
+                user_id=s.user_id,
+                rule_type=s.rule_type,
+                target_time=s.target_time,
+                days_of_week=days,
+                is_active=s.is_active,
+                last_triggered_date=s.last_triggered_date,
+                created_at=s.created_at,
+            )
+        )
+
     return ZoneResponse(
         id=zone.id,
         user_id=zone.user_id,
@@ -67,9 +103,11 @@ def _format_zone_response(zone: Zone) -> ZoneResponse:
         alert_on_enter=zone.alert_on_enter,
         cooldown_minutes=zone.cooldown_minutes,
         is_active=zone.is_active,
+        is_safe_zone=getattr(zone, "is_safe_zone", True),
         created_at=zone.created_at,
         updated_at=zone.updated_at,
         devices=devices_data,
+        schedules=schedules_data,
     )
 
 
@@ -84,7 +122,8 @@ async def list_zones(
     stmt = (
         select(Zone)
         .options(
-            joinedload(Zone.zone_devices).joinedload(ZoneDevice.device)
+            joinedload(Zone.zone_devices).joinedload(ZoneDevice.device),
+            joinedload(Zone.schedules),
         )
         .where(Zone.user_id == current_user.id)
         .order_by(Zone.id.asc())
@@ -119,6 +158,7 @@ async def create_zone(
         alert_on_enter=body.alert_on_enter,
         cooldown_minutes=max(1, body.cooldown_minutes),
         is_active=body.is_active,
+        is_safe_zone=body.is_safe_zone,
     )
     db.add(new_zone)
     await db.flush()  # populate new_zone.id
@@ -187,7 +227,10 @@ async def get_zone_by_id(
     """
     stmt = (
         select(Zone)
-        .options(joinedload(Zone.zone_devices).joinedload(ZoneDevice.device))
+        .options(
+            joinedload(Zone.zone_devices).joinedload(ZoneDevice.device),
+            joinedload(Zone.schedules),
+        )
         .where(Zone.id == zone_id, Zone.user_id == current_user.id)
     )
     result = await db.execute(stmt)
@@ -209,7 +252,10 @@ async def update_zone(
     """
     stmt = (
         select(Zone)
-        .options(joinedload(Zone.zone_devices).joinedload(ZoneDevice.device))
+        .options(
+            joinedload(Zone.zone_devices).joinedload(ZoneDevice.device),
+            joinedload(Zone.schedules),
+        )
         .where(Zone.id == zone_id, Zone.user_id == current_user.id)
     )
     result = await db.execute(stmt)
@@ -240,6 +286,8 @@ async def update_zone(
         zone.cooldown_minutes = max(1, body.cooldown_minutes)
     if body.is_active is not None:
         zone.is_active = body.is_active
+    if body.is_safe_zone is not None:
+        zone.is_safe_zone = body.is_safe_zone
 
     zone.updated_at = datetime.now(timezone.utc)
 
@@ -424,3 +472,187 @@ async def clear_all_alerts(
     await db.execute(stmt)
     await db.commit()
     return {"status": "ok", "message": "Đã xóa toàn bộ lịch sử cảnh báo."}
+
+
+@router.get("/{zone_id}/schedules", response_model=List[ZoneScheduleResponse])
+async def list_zone_schedules(
+    zone_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all time schedule reminder rules for a specific zone.
+    """
+    z_stmt = select(Zone).where(Zone.id == zone_id, Zone.user_id == current_user.id)
+    zone = (await db.execute(z_stmt)).scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=404, detail="Khu vực không tồn tại")
+
+    stmt = (
+        select(ZoneSchedule)
+        .options(joinedload(ZoneSchedule.device))
+        .where(ZoneSchedule.zone_id == zone_id, ZoneSchedule.user_id == current_user.id)
+        .order_by(ZoneSchedule.target_time.asc())
+    )
+    schedules = (await db.execute(stmt)).scalars().all()
+
+    resp = []
+    for s in schedules:
+        days = []
+        try:
+            days = json.loads(s.days_of_week)
+        except Exception:
+            days = [1, 2, 3, 4, 5, 6, 7]
+        resp.append(
+            ZoneScheduleResponse(
+                id=s.id,
+                zone_id=s.zone_id,
+                device_id=s.device_id,
+                device_name=s.device.name if s.device else "Tất cả thiết bị",
+                user_id=s.user_id,
+                rule_type=s.rule_type,
+                target_time=s.target_time,
+                days_of_week=days,
+                is_active=s.is_active,
+                last_triggered_date=s.last_triggered_date,
+                created_at=s.created_at,
+            )
+        )
+    return resp
+
+
+@router.post("/{zone_id}/schedules", response_model=ZoneScheduleResponse, status_code=status.HTTP_201_CREATED)
+async def create_zone_schedule(
+    zone_id: int,
+    body: ZoneScheduleCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a new time-based reminder rule for this zone.
+    """
+    z_stmt = select(Zone).where(Zone.id == zone_id, Zone.user_id == current_user.id)
+    zone = (await db.execute(z_stmt)).scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=404, detail="Khu vực không tồn tại")
+
+    device_name = "Tất cả thiết bị"
+    if body.device_id:
+        d_stmt = select(Device).where(Device.id == body.device_id, Device.user_id == current_user.id)
+        device = (await db.execute(d_stmt)).scalar_one_or_none()
+        if not device:
+            raise HTTPException(status_code=400, detail="Thiết bị không tồn tại")
+        device_name = device.name
+
+    days_json = json.dumps(body.days_of_week or [1, 2, 3, 4, 5, 6, 7])
+    new_sched = ZoneSchedule(
+        zone_id=zone_id,
+        device_id=body.device_id,
+        user_id=current_user.id,
+        rule_type=body.rule_type,
+        target_time=body.target_time,
+        days_of_week=days_json,
+        is_active=body.is_active,
+    )
+    db.add(new_sched)
+    await db.commit()
+    await db.refresh(new_sched)
+
+    return ZoneScheduleResponse(
+        id=new_sched.id,
+        zone_id=new_sched.zone_id,
+        device_id=new_sched.device_id,
+        device_name=device_name,
+        user_id=new_sched.user_id,
+        rule_type=new_sched.rule_type,
+        target_time=new_sched.target_time,
+        days_of_week=body.days_of_week or [1, 2, 3, 4, 5, 6, 7],
+        is_active=new_sched.is_active,
+        last_triggered_date=new_sched.last_triggered_date,
+        created_at=new_sched.created_at,
+    )
+
+
+@router.put("/schedules/{schedule_id}", response_model=ZoneScheduleResponse)
+async def update_zone_schedule(
+    schedule_id: int,
+    body: ZoneScheduleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update an existing zone time schedule rule.
+    """
+    stmt = select(ZoneSchedule).where(ZoneSchedule.id == schedule_id, ZoneSchedule.user_id == current_user.id)
+    sched = (await db.execute(stmt)).scalar_one_or_none()
+    if not sched:
+        raise HTTPException(status_code=404, detail="Quy tắc lịch trình không tồn tại")
+
+    device_name = "Tất cả thiết bị"
+    if body.device_id is not None:
+        if body.device_id > 0:
+            d_stmt = select(Device).where(Device.id == body.device_id, Device.user_id == current_user.id)
+            device = (await db.execute(d_stmt)).scalar_one_or_none()
+            if not device:
+                raise HTTPException(status_code=400, detail="Thiết bị không tồn tại")
+            sched.device_id = body.device_id
+            device_name = device.name
+        else:
+            sched.device_id = None
+    elif sched.device_id:
+        d_stmt = select(Device).where(Device.id == sched.device_id, Device.user_id == current_user.id)
+        device = (await db.execute(d_stmt)).scalar_one_or_none()
+        if device:
+            device_name = device.name
+
+    if body.rule_type is not None:
+        sched.rule_type = body.rule_type
+    if body.target_time is not None:
+        sched.target_time = body.target_time
+    if body.days_of_week is not None:
+        sched.days_of_week = json.dumps(body.days_of_week)
+    if body.is_active is not None:
+        sched.is_active = body.is_active
+
+    await db.commit()
+    await db.refresh(sched)
+
+    days = []
+    try:
+        days = json.loads(sched.days_of_week)
+    except Exception:
+        days = [1, 2, 3, 4, 5, 6, 7]
+
+    return ZoneScheduleResponse(
+        id=sched.id,
+        zone_id=sched.zone_id,
+        device_id=sched.device_id,
+        device_name=device_name,
+        user_id=sched.user_id,
+        rule_type=sched.rule_type,
+        target_time=sched.target_time,
+        days_of_week=days,
+        is_active=sched.is_active,
+        last_triggered_date=sched.last_triggered_date,
+        created_at=sched.created_at,
+    )
+
+
+@router.delete("/schedules/{schedule_id}", status_code=status.HTTP_200_OK)
+async def delete_zone_schedule(
+    schedule_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete a zone time schedule rule.
+    """
+    stmt = select(ZoneSchedule).where(ZoneSchedule.id == schedule_id, ZoneSchedule.user_id == current_user.id)
+    sched = (await db.execute(stmt)).scalar_one_or_none()
+    if not sched:
+        raise HTTPException(status_code=404, detail="Quy tắc lịch trình không tồn tại")
+
+    await db.delete(sched)
+    await db.commit()
+    return {"status": "ok", "message": "Đã xóa quy tắc lịch trình"}
+

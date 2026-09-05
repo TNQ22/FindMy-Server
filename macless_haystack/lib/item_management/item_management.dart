@@ -46,15 +46,34 @@ class KeyManagement extends StatelessWidget {
                       ),
                     );
                   },
-                  title: Text(
-                    accessory.name + (accessory.isActive ? '' : ' (inactive)'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: accessory.isActive
-                          ? Theme.of(context).colorScheme.onSurface
-                          : Theme.of(context).disabledColor,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  title: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          accessory.name + (accessory.isActive ? '' : ' (inactive)'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: accessory.isActive
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(context).disabledColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (accessory.isMaster) ...[
+                        const SizedBox(width: 4),
+                        const Tooltip(
+                          message: 'Thiết bị chủ (iPhone)',
+                          child: Text('📱', style: TextStyle(fontSize: 12)),
+                        ),
+                      ] else if (accessory.masterDeviceId != null) ...[
+                        const SizedBox(width: 4),
+                        const Tooltip(
+                          message: 'Tag đồng hành (đi kèm thiết bị chủ)',
+                          child: Text('🔗', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ],
                   ),
                   subtitle: Text(
                     lastSeen,

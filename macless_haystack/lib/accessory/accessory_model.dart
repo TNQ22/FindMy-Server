@@ -86,6 +86,24 @@ class Accessory {
 
   bool hasChangedFlag = false;
 
+  /// Server database ID
+  int? serverId;
+
+  /// Whether this tag is designated as a Master / Host device (e.g. iPhone)
+  bool isMaster = false;
+
+  /// The master device ID if this tag is a companion device
+  int? masterDeviceId;
+
+  /// Separation alert enabled
+  bool separationAlertEnabled = false;
+
+  /// Separation threshold in meters
+  double separationThresholdMeters = 150.0;
+
+  /// Whether to suppress separation alerts when inside any safe zone
+  bool ignoreSeparationInSafeZones = true;
+
   /// Creates an accessory with the given properties.
   Accessory(
       {required this.id,
@@ -114,7 +132,7 @@ class Accessory {
 
   /// Creates a new accessory with exactly the same properties of this accessory.
   Accessory clone() {
-    return Accessory(
+    var acc = Accessory(
         datePublished: datePublished,
         id: id,
         name: name,
@@ -127,6 +145,13 @@ class Accessory {
         additionalKeys: additionalKeys,
         locationHistory: locationHistory,
         lastBatteryStatus: lastBatteryStatus);
+    acc.serverId = serverId;
+    acc.isMaster = isMaster;
+    acc.masterDeviceId = masterDeviceId;
+    acc.separationAlertEnabled = separationAlertEnabled;
+    acc.separationThresholdMeters = separationThresholdMeters;
+    acc.ignoreSeparationInSafeZones = ignoreSeparationInSafeZones;
+    return acc;
   }
 
   /// Updates the properties of this accessor with the new values of the [newAccessory].
@@ -140,6 +165,12 @@ class Accessory {
     hashesWithTS = newAccessory.hashesWithTS;
     locationHistory = newAccessory.locationHistory;
     additionalKeys = newAccessory.additionalKeys;
+    serverId = newAccessory.serverId;
+    isMaster = newAccessory.isMaster;
+    masterDeviceId = newAccessory.masterDeviceId;
+    separationAlertEnabled = newAccessory.separationAlertEnabled;
+    separationThresholdMeters = newAccessory.separationThresholdMeters;
+    ignoreSeparationInSafeZones = newAccessory.ignoreSeparationInSafeZones;
   }
 
   /// The last known location of the accessory.

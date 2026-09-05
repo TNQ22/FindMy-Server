@@ -20,6 +20,7 @@ class User(Base):
     reports: Mapped[list["LocationReport"]] = relationship("LocationReport", back_populates="user", cascade="all, delete-orphan")
     zones: Mapped[list["Zone"]] = relationship("Zone", back_populates="user", cascade="all, delete-orphan")
     zone_alerts: Mapped[list["ZoneAlert"]] = relationship("ZoneAlert", back_populates="user", cascade="all, delete-orphan")
+    zone_schedules: Mapped[list["ZoneSchedule"]] = relationship("ZoneSchedule", back_populates="user", cascade="all, delete-orphan")
 
 class ICloudAccount(Base):
     __tablename__ = "icloud_accounts"
@@ -55,9 +56,20 @@ class Device(Base):
     last_battery: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_alerted_battery: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
+    # Companion / Separation alert configuration
+    is_master: Mapped[bool] = mapped_column(Boolean, default=False)
+    master_device_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("devices.id", ondelete="SET NULL"), nullable=True)
+    separation_alert_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    separation_threshold_meters: Mapped[float] = mapped_column(Float, default=150.0)
+    ignore_separation_in_safe_zones: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_separation_alert_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_separation_distance: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     user: Mapped["User"] = relationship("User", back_populates="devices")
     zone_links: Mapped[list["ZoneDevice"]] = relationship("ZoneDevice", back_populates="device", cascade="all, delete-orphan")
     zone_alerts: Mapped[list["ZoneAlert"]] = relationship("ZoneAlert", back_populates="device", cascade="all, delete-orphan")
+    master_device: Mapped["Device | None"] = relationship("Device", remote_side="Device.id", backref="companion_devices")
+    zone_schedules: Mapped[list["ZoneSchedule"]] = relationship("ZoneSchedule", back_populates="device", cascade="all, delete-orphan")
 
 class LocationReport(Base):
     __tablename__ = "location_reports"
@@ -99,12 +111,14 @@ class Zone(Base):
     alert_on_enter: Mapped[bool] = mapped_column(Boolean, default=False)
     cooldown_minutes: Mapped[int] = mapped_column(Integer, default=15)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_safe_zone: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user: Mapped["User"] = relationship("User", back_populates="zones")
     zone_devices: Mapped[list["ZoneDevice"]] = relationship("ZoneDevice", back_populates="zone", cascade="all, delete-orphan")
     alerts: Mapped[list["ZoneAlert"]] = relationship("ZoneAlert", back_populates="zone", cascade="all, delete-orphan")
+    schedules: Mapped[list["ZoneSchedule"]] = relationship("ZoneSchedule", back_populates="zone", cascade="all, delete-orphan")
 
 
 class ZoneDevice(Base):
@@ -139,4 +153,23 @@ class ZoneAlert(Base):
     user: Mapped["User"] = relationship("User", back_populates="zone_alerts")
     zone: Mapped["Zone"] = relationship("Zone", back_populates="alerts")
     device: Mapped["Device"] = relationship("Device", back_populates="zone_alerts")
+
+
+class ZoneSchedule(Base):
+    __tablename__ = "zone_schedules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    zone_id: Mapped[int] = mapped_column(Integer, ForeignKey("zones.id", ondelete="CASCADE"), index=True, nullable=False)
+    device_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), index=True, nullable=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    rule_type: Mapped[str] = mapped_column(String(30), default="MUST_LEAVE_BY", nullable=False)  # MUST_LEAVE_BY, MUST_ENTER_BY
+    target_time: Mapped[str] = mapped_column(String(10), nullable=False)  # "08:00"
+    days_of_week: Mapped[str] = mapped_column(String(50), default="[1,2,3,4,5,6,7]", nullable=False)  # JSON list of int (1=Mon..7=Sun)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_triggered_date: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "YYYY-MM-DD"
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    zone: Mapped["Zone"] = relationship("Zone", back_populates="schedules")
+    device: Mapped["Device | None"] = relationship("Device", back_populates="zone_schedules")
+    user: Mapped["User"] = relationship("User", back_populates="zone_schedules")
 
