@@ -76,6 +76,7 @@ def run_direct_sqlite_migration():
                 ("last_lon",                        "REAL"),
                 ("last_seen_at",                    "DATETIME"),
                 ("last_battery",                    "VARCHAR(50)"),
+                ("last_alerted_battery",            "VARCHAR(50)"),
                 ("owner_user_id",                   "INTEGER"),
                 ("is_master",                       "BOOLEAN DEFAULT 0"),
                 ("master_device_id",                "INTEGER"),

@@ -268,6 +268,11 @@ async def run_sync_task() -> dict:
             else:
                 logger.warning(f"Temporary sync error (no alert dispatched): {e}")
 
+            # Transaction was rolled back by the session context on exception; reset counts so caller is not misled
+            total_new = 0
+            total_decrypted = 0
+            updated_device_names = []
+
     return {
         "new_reports":     total_new,
         "decrypted":       total_decrypted,
