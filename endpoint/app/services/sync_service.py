@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
@@ -122,6 +123,8 @@ async def run_sync_task() -> dict:
             reports = await fetch_reports_from_icloud(apple_acc, keys)
             logger.info(f"     Apple returned {len(reports)} raw report(s) total.")
 
+            new_decrypted_reports = []
+
             for rep in reports:
                 r_key  = rep["id"]
                 ts_pub = rep["datePublished"]
@@ -164,47 +167,70 @@ async def run_sync_task() -> dict:
                     new_rep.decrypted_at   = datetime.now(timezone.utc)
                     total_decrypted += 1
 
-                    # Update all matching devices (including shared devices) last-known location if newer
-                    rep_ts = dec_result["timestamp"]
-                    new_battery = dec_result["battery_status"]
-                    for dev_obj in matched_devices:
-                        if (
-                            dev_obj.last_seen_at is None
-                            or rep_ts.replace(tzinfo=timezone.utc)
-                            > dev_obj.last_seen_at.replace(tzinfo=timezone.utc)
-                        ):
-                            dev_obj.last_lat     = dec_result["latitude"]
-                            dev_obj.last_lon     = dec_result["longitude"]
-                            dev_obj.last_seen_at = rep_ts.replace(tzinfo=None)
-                            dev_obj.last_battery = new_battery
-                            
-                            # Handle low battery alerts
-                            if new_battery in ["low", "criticalLow"]:
-                                if dev_obj.last_alerted_battery != new_battery:
-                                    dev_obj.last_alerted_battery = new_battery
-                                    if dev_obj.user:
-                                        import asyncio
-                                        asyncio.create_task(
-                                            dispatch_low_battery_notification(dev_obj.user, dev_obj.name, new_battery)
-                                        )
-                            elif new_battery in ["ok", "medium"]:
-                                # Reset alert state if battery is replaced or recovered
-                                dev_obj.last_alerted_battery = None
-                                
-                            if dev_obj.name not in updated_device_names:
-                                updated_device_names.append(dev_obj.name)
-
-                            # Evaluate geofence rules (Safe Zone Exit / Enter)
-                            await evaluate_device_geofence(
-                                db,
-                                dev_obj,
-                                dec_result["latitude"],
-                                dec_result["longitude"],
-                                rep_ts,
-                            )
+                    new_decrypted_reports.append((matched_devices, dec_result))
 
                 db.add(new_rep)
                 total_new += 1
+
+            # ── Process decrypted reports chronologically per device ───────────
+            device_reports_map = defaultdict(list)
+            for m_devs, dec_res in new_decrypted_reports:
+                for dev_obj in m_devs:
+                    device_reports_map[dev_obj.id].append((dev_obj, dec_res))
+
+            for dev_id, dev_items in device_reports_map.items():
+                # Sort reports chronologically (oldest to newest)
+                dev_items.sort(
+                    key=lambda item: item[1]["timestamp"].replace(tzinfo=timezone.utc)
+                    if item[1]["timestamp"].tzinfo is None
+                    else item[1]["timestamp"]
+                )
+
+                for dev_obj, dec_result in dev_items:
+                    rep_ts = dec_result["timestamp"]
+                    rep_ts_utc = (
+                        rep_ts.replace(tzinfo=timezone.utc)
+                        if rep_ts.tzinfo is None
+                        else rep_ts
+                    )
+                    dev_last_seen_utc = (
+                        dev_obj.last_seen_at.replace(tzinfo=timezone.utc)
+                        if dev_obj.last_seen_at and dev_obj.last_seen_at.tzinfo is None
+                        else dev_obj.last_seen_at
+                    )
+
+                    # Advance location if this report is newer than device's last known time
+                    if dev_last_seen_utc is None or rep_ts_utc > dev_last_seen_utc:
+                        dev_obj.last_lat     = dec_result["latitude"]
+                        dev_obj.last_lon     = dec_result["longitude"]
+                        dev_obj.last_seen_at = rep_ts.replace(tzinfo=None)
+                        new_battery          = dec_result["battery_status"]
+                        dev_obj.last_battery = new_battery
+
+                        # Handle low battery alerts
+                        if new_battery in ["low", "criticalLow"]:
+                            if dev_obj.last_alerted_battery != new_battery:
+                                dev_obj.last_alerted_battery = new_battery
+                                if dev_obj.user:
+                                    import asyncio
+                                    asyncio.create_task(
+                                        dispatch_low_battery_notification(dev_obj.user, dev_obj.name, new_battery)
+                                    )
+                        elif new_battery in ["ok", "medium"]:
+                            # Reset alert state if battery is replaced or recovered
+                            dev_obj.last_alerted_battery = None
+
+                        if dev_obj.name not in updated_device_names:
+                            updated_device_names.append(dev_obj.name)
+
+                        # Evaluate geofence rules (Safe Zone Exit / Enter) in true chronological order
+                        await evaluate_device_geofence(
+                            db,
+                            dev_obj,
+                            dec_result["latitude"],
+                            dec_result["longitude"],
+                            rep_ts,
+                        )
 
             # Reset error/alert state on successful sync
             if account_rec.is_alerted or account_rec.last_error:

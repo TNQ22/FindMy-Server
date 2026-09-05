@@ -98,6 +98,10 @@ async def evaluate_device_geofence(
             return
 
         now = datetime.now(timezone.utc)
+        event_time = timestamp if timestamp else now
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=timezone.utc)
+        event_naive = event_time.replace(tzinfo=None)
 
         for zd in zone_links:
             zone = zd.zone
@@ -140,7 +144,7 @@ async def evaluate_device_geofence(
                 continue
 
             if alert_type:
-                # Check cooldown window
+                # Check cooldown window based on event_time
                 can_alert = True
                 if zd.last_alert_time:
                     last_alert_naive = (
@@ -148,30 +152,34 @@ async def evaluate_device_geofence(
                         if zd.last_alert_time.tzinfo
                         else zd.last_alert_time
                     )
-                    now_naive = now.replace(tzinfo=None)
-                    elapsed_seconds = (now_naive - last_alert_naive).total_seconds()
-                    elapsed_minutes = elapsed_seconds / 60.0
+                    elapsed_seconds = (event_naive - last_alert_naive).total_seconds()
 
-                    if zd.last_alert_type == alert_type:
-                        # Same event type: enforce full cooldown_minutes
-                        if elapsed_minutes < zone.cooldown_minutes:
-                            can_alert = False
-                            logger.info(
-                                f"Geofence {alert_type} for device '{device.name}' in zone '{zone.name}' "
-                                f"suppressed by cooldown ({elapsed_minutes:.1f}/{zone.cooldown_minutes} min)."
-                            )
+                    if elapsed_seconds < 0:
+                        # Out of order older report, ignore alert
+                        can_alert = False
                     else:
-                        # State changed (e.g. EXIT -> ENTER): allow if minimal debounce (5s) met
-                        if elapsed_seconds < 5.0:
-                            can_alert = False
+                        elapsed_minutes = elapsed_seconds / 60.0
+                        if zd.last_alert_type == alert_type:
+                            # Same event type: enforce full cooldown_minutes
+                            if elapsed_minutes < zone.cooldown_minutes:
+                                can_alert = False
+                                logger.info(
+                                    f"Geofence {alert_type} for device '{device.name}' in zone '{zone.name}' "
+                                    f"suppressed by cooldown ({elapsed_minutes:.1f}/{zone.cooldown_minutes} min)."
+                                )
+                        else:
+                            # State changed (e.g. EXIT -> ENTER): allow if minimal debounce (10s) met
+                            # Prevents rapid flapping right at boundary while catching real moves in batch sync
+                            if elapsed_seconds < 10.0:
+                                can_alert = False
 
                 if can_alert:
                     logger.warning(
                         f"GEOFENCE TRIGGER: Device '{device.name}' triggered {alert_type} "
-                        f"on Zone '{zone.name}' (Dist: {distance:.1f}m, Radius: {zone.radius}m)"
+                        f"on Zone '{zone.name}' (Dist: {distance:.1f}m, Radius: {zone.radius}m, EventTime: {event_naive})"
                     )
 
-                    # Log to database
+                    # Log to database with event timestamp
                     alert_record = ZoneAlert(
                         user_id=zone.user_id,
                         zone_id=zone.id,
@@ -180,10 +188,10 @@ async def evaluate_device_geofence(
                         latitude=current_lat,
                         longitude=current_lon,
                         distance=distance,
-                        created_at=now,
+                        created_at=event_naive,
                     )
                     db.add(alert_record)
-                    zd.last_alert_time = now
+                    zd.last_alert_time = event_naive
                     zd.last_alert_type = alert_type
 
                     # Dispatch notifications asynchronously
@@ -198,6 +206,7 @@ async def evaluate_device_geofence(
                                 lon=current_lon,
                                 distance=distance,
                                 radius=zone.radius,
+                                event_time=event_time,
                             )
                         )
 

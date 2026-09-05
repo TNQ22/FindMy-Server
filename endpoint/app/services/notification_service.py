@@ -252,6 +252,7 @@ async def dispatch_geofence_notification(
     lon: float,
     distance: float,
     radius: float,
+    event_time: datetime | None = None,
 ):
     """
     Dispatches geofence entry/exit alert across all user-configured channels (Email, Telegram, Discord, Webhook).
@@ -260,7 +261,11 @@ async def dispatch_geofence_notification(
     is_exit = alert_type.upper() == "EXIT"
     action_text = "RỜI KHỎI" if is_exit else "ĐI VÀO"
     title_text = f"Cảnh Báo Vùng An Toàn: {device_name} đã {action_text} {zone_name}"
-    now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    
+    event_dt = event_time if event_time else datetime.now(timezone.utc)
+    if event_dt.tzinfo is None:
+        event_dt = event_dt.replace(tzinfo=timezone.utc)
+    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
 
     # 1. Email Alert
@@ -275,6 +280,7 @@ async def dispatch_geofence_notification(
                 lon=lon,
                 distance=distance,
                 radius=radius,
+                event_time=event_dt,
             )
         except Exception as e:
             logger.error(f"Geofence email alert error: {e}")
@@ -292,7 +298,7 @@ async def dispatch_geofence_notification(
                 f"⚡ <b>Sự kiện:</b> <b>{action_text} KHU VỰC</b>\n"
                 f"📏 <b>Khoảng cách:</b> {distance:.1f} m\n"
                 f"🌐 <b>Tọa độ:</b> {lat:.6f}, {lon:.6f}\n"
-                f"🕒 <b>Thời gian:</b> {now_str}\n\n"
+                f"🕒 <b>Thời gian:</b> {time_str}\n\n"
                 f"🔗 <a href=\"{maps_url}\">Xem vị trí trên Google Maps</a>"
             )
             await send_telegram_alert(token, chat_id, text)
@@ -308,6 +314,7 @@ async def dispatch_geofence_notification(
                 {"name": "⚡ Sự kiện", "value": f"**{action_text}**", "inline": True},
                 {"name": "📏 Khoảng cách", "value": f"{distance:.1f} m", "inline": True},
                 {"name": "🌐 Tọa độ", "value": f"[{lat:.6f}, {lon:.6f}]({maps_url})", "inline": True},
+                {"name": "🕒 Thời gian", "value": time_str, "inline": True},
                 {"name": "👤 Chủ sở hữu", "value": user.email, "inline": True},
             ]
             await send_discord_alert(
@@ -334,7 +341,7 @@ async def dispatch_geofence_notification(
                 "latitude": lat,
                 "longitude": lon,
                 "maps_url": maps_url,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": event_dt.isoformat(),
                 "user_email": user.email,
             }
             await send_custom_webhook_alert(wh_url, payload)

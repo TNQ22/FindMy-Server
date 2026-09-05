@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from email.message import EmailMessage
 import aiosmtplib
 from app.config import settings
@@ -164,6 +165,7 @@ async def send_geofence_alert(
     lon: float,
     distance: float,
     radius: float,
+    event_time: datetime | None = None,
 ):
     """
     Sends an email alert when a device enters or exits a geofence zone.
@@ -181,6 +183,11 @@ async def send_geofence_alert(
     badge_color = "#d9534f" if is_exit else "#28a745"
     title_text = f"Cảnh Báo Vùng An Toàn: {device_name} đã {action_text} {zone_name}"
     
+    event_dt = event_time if event_time else datetime.now(timezone.utc)
+    if event_dt.tzinfo is None:
+        event_dt = event_dt.replace(tzinfo=timezone.utc)
+    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
 
     msg['Subject'] = f"{'🚨' if is_exit else '📍'} {title_text}"
@@ -200,6 +207,7 @@ async def send_geofence_alert(
           <p style="margin: 5px 0;">⚡ <b>Sự kiện:</b> <span style="color: {badge_color}; font-weight: bold;">{action_text} KHU VỰC</span></p>
           <p style="margin: 5px 0;">📏 <b>Khoảng cách tới tâm:</b> {distance:.1f} m</p>
           <p style="margin: 5px 0;">🌐 <b>Tọa độ:</b> {lat:.6f}, {lon:.6f}</p>
+          <p style="margin: 5px 0;">🕒 <b>Thời gian sự kiện:</b> {time_str}</p>
         </div>
 
         <div style="text-align: center; margin: 25px 0;">
@@ -221,6 +229,7 @@ async def send_geofence_alert(
         f"Sự kiện: {action_text} khu vực\n"
         f"Khoảng cách tới tâm: {distance:.1f} m (Bán kính: {int(radius)}m)\n"
         f"Tọa độ: {lat:.6f}, {lon:.6f}\n"
+        f"Thời gian sự kiện: {time_str}\n"
         f"Xem bản đồ: {maps_url}\n"
     )
     msg.add_alternative(html_content, subtype='html')
