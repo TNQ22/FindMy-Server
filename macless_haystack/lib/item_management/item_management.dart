@@ -83,7 +83,6 @@ class KeyManagement extends StatelessWidget {
                     subtitleText,
                     style: TextStyle(
                       fontSize: 11.5,
-                      fontStyle: hasNotes ? FontStyle.italic : FontStyle.normal,
                       color: Theme.of(context).brightness == Brightness.dark
                           ? (hasNotes ? Colors.tealAccent.shade100 : Colors.grey.shade400)
                           : (hasNotes ? Colors.teal.shade800 : Colors.grey.shade600),
