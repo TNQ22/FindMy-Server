@@ -52,6 +52,11 @@ class AccessoryListItemState extends State<AccessoryListItem> {
         ? DateFormat('dd/MM/yyyy - HH:mm').format(widget.accessory.datePublished!)
         : 'Chưa có vị trí';
 
+    final bool hasNotes = widget.accessory.notes != null &&
+        widget.accessory.notes!.trim().isNotEmpty;
+    final String subtitleText =
+        hasNotes ? widget.accessory.notes!.trim() : dateString;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       color: _tileColor,
@@ -96,13 +101,15 @@ class AccessoryListItemState extends State<AccessoryListItem> {
           ],
         ),
         subtitle: Text(
-          dateString,
+          subtitleText,
           style: TextStyle(
             fontSize: 11.5,
+            fontStyle: hasNotes ? FontStyle.italic : FontStyle.normal,
             color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.grey.shade400
-                : Colors.grey.shade600,
+                ? (hasNotes ? Colors.tealAccent.shade100 : Colors.grey.shade400)
+                : (hasNotes ? Colors.teal.shade800 : Colors.grey.shade600),
           ),
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Row(
