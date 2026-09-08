@@ -697,9 +697,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
     final typeController = TextEditingController(
       text: newAccessory.batteryType ?? 'CR2032',
     );
-    final noteController = TextEditingController(
-      text: newAccessory.notes ?? '',
-    );
 
     showDialog(
       context: context,
@@ -803,20 +800,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                       color: Colors.teal.shade700,
                     ),
                   ),
-                  const SizedBox(height: 14),
-
-                  const Text('Ghi Chú Pin / Vị Trí (Tùy chọn):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: noteController,
-                    maxLines: 2,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Ví dụ: Pin Maxell mua Shopee, để trong balo laptop...',
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -835,8 +818,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                   setState(() {
                     newAccessory.batteryType = typeController.text.trim().isEmpty ? null : typeController.text.trim();
                     newAccessory.batteryReplacedAt = selectedDate;
-                    _notesController.text = noteController.text.trim();
-                    newAccessory.notes = noteController.text.trim().isEmpty ? null : noteController.text.trim();
                   });
                   Navigator.pop(ctx);
                 },
