@@ -34,6 +34,10 @@ class KeyManagement extends StatelessWidget {
                   ? DateFormat('dd/MM/yyyy - HH:mm')
                       .format(accessory.datePublished!)
                   : 'Chưa có vị trí';
+              final bool hasNotes = accessory.notes != null &&
+                  accessory.notes!.trim().isNotEmpty;
+              final String subtitleText =
+                  hasNotes ? accessory.notes!.trim() : lastSeen;
               return Material(
                 color: Colors.transparent,
                 child: ListTile(
@@ -76,13 +80,15 @@ class KeyManagement extends StatelessWidget {
                     ],
                   ),
                   subtitle: Text(
-                    lastSeen,
+                    subtitleText,
                     style: TextStyle(
                       fontSize: 11.5,
+                      fontStyle: hasNotes ? FontStyle.italic : FontStyle.normal,
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey.shade400
-                          : Colors.grey.shade600,
+                          ? (hasNotes ? Colors.tealAccent.shade100 : Colors.grey.shade400)
+                          : (hasNotes ? Colors.teal.shade800 : Colors.grey.shade600),
                     ),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   leading: Opacity(
