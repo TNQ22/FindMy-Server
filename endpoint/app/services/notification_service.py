@@ -1,11 +1,11 @@
 import json
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import aiohttp
-from app.config import settings
+from app.config import settings, get_local_timezone
 from app.models import User
 
-LOCAL_TZ = timezone(timedelta(hours=7))
+LOCAL_TZ = get_local_timezone()
 from app.services.email_service import (
     send_low_battery_alert,
     send_icloud_status_alert,

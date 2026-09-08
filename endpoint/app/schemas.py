@@ -77,6 +77,10 @@ class DeviceCreateRequest(BaseModel):
     name: str
     hashed_adv_key: str
     private_key_b64: str | None = None
+    notes: str | None = None
+
+class DeviceNotesRequest(BaseModel):
+    notes: str | None = None
 
 from pydantic import BaseModel, Field, field_validator
 from datetime import timezone
@@ -92,6 +96,7 @@ class DeviceResponse(BaseModel):
     last_lon: float | None = None
     last_seen_at: datetime | None = None
     last_battery: str | None = None
+    notes: str | None = None
     owner_user_id: Optional[int] = None
     is_owner: bool = True
     is_master: bool = False

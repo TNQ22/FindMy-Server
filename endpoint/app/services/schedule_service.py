@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.config import get_local_timezone
 from app.models import ZoneSchedule, Zone, ZoneDevice, Device, User
 from app.services.notification_service import dispatch_zone_schedule_notification
 
@@ -19,8 +20,7 @@ async def check_zone_schedules(db: AsyncSession):
     Runs periodically via APScheduler.
     """
     try:
-        # Default local timezone is UTC+7 (Asia/Ho_Chi_Minh)
-        local_tz = timezone(timedelta(hours=7))
+        local_tz = get_local_timezone()
         local_now = datetime.now(local_tz)
         cur_day = local_now.isoweekday()  # 1 = Monday, ..., 7 = Sunday
         cur_time_str = local_now.strftime("%H:%M")

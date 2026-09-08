@@ -14,6 +14,7 @@ from app.schemas import (
     SharedUserInfo,
     TransferOwnershipRequest,
     CompanionSettingsRequest,
+    DeviceNotesRequest,
 )
 from app.services.auth_service import get_current_user
 
@@ -361,6 +362,8 @@ async def create_device(
         dev.name           = body.name
         dev.hashed_adv_key = derived_hashed_key
         dev.private_key_b64 = body.private_key_b64
+        if body.notes is not None:
+            dev.notes = body.notes
         await restore_history(dev)
         await db.commit()
         await db.refresh(dev)
@@ -372,6 +375,7 @@ async def create_device(
         name           = body.name,
         hashed_adv_key = derived_hashed_key,
         private_key_b64 = body.private_key_b64,
+        notes          = body.notes,
     )
     db.add(device)
     await restore_history(device)
@@ -524,3 +528,25 @@ async def update_device_companion_settings(
     await db.commit()
     await db.refresh(device)
     return device
+
+
+@router.patch("/{device_id}/notes", response_model=DeviceResponse)
+async def update_device_notes(
+    device_id: int,
+    body: DeviceNotesRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update notes / battery tracking info for a device.
+    """
+    stmt = select(Device).where(Device.id == device_id, Device.user_id == current_user.id)
+    device = (await db.execute(stmt)).scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
+
+    device.notes = body.notes
+    await db.commit()
+    await db.refresh(device)
+    return device
+

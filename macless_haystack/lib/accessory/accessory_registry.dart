@@ -291,6 +291,7 @@ class AccessoryRegistry extends ChangeNotifier {
               (item['separation_threshold_meters'] as num?)?.toDouble() ?? 150.0;
           acc.ignoreSeparationInSafeZones =
               item['ignore_separation_in_safe_zones'] != false;
+          acc.notes = item['notes'] as String?;
 
           syncedAccessories.add(acc);
           updated = true;
@@ -592,4 +593,52 @@ class AccessoryRegistry extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Updates notes / battery tracking info for an accessory on the backend & locally.
+  Future<bool> updateDeviceNotes(Accessory acc, String notes) async {
+    try {
+      final trimmed = notes.trim();
+      acc.notes = trimmed.isEmpty ? null : trimmed;
+      _storeAccessories();
+      notifyListeners();
+
+      int? devId = acc.serverId;
+      if (devId == null) {
+        final res = await http.get(
+          Uri.parse('$_baseUrl/api/devices'),
+          headers: _authHeaders,
+        );
+        if (res.statusCode == 200) {
+          List data = jsonDecode(res.body);
+          for (var item in data) {
+            if (item['hashed_adv_key'] == acc.hashedPublicKey) {
+              devId = item['id'] as int?;
+              acc.serverId = devId;
+              break;
+            }
+          }
+        }
+      }
+
+      if (devId != null) {
+        final patchRes = await http.patch(
+          Uri.parse('$_baseUrl/api/devices/$devId/notes'),
+          headers: _authHeaders,
+          body: jsonEncode({'notes': acc.notes}),
+        );
+        if (patchRes.statusCode == 200) {
+          return true;
+        } else {
+          logger.e('Failed to patch device notes: ${patchRes.statusCode} ${patchRes.body}');
+        }
+      }
+
+      _saveDeviceToBackend(acc);
+      return true;
+    } catch (e) {
+      logger.e('Error updating device notes: $e');
+      return false;
+    }
+  }
 }
+

@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     ports:
       - "6969:6969"
+    environment:
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
     volumes:
       - anisette_data:/home/Alcoholic/.config/anisette-v3
     logging:
@@ -22,6 +24,7 @@ services:
     ports:
       - "6176:6176"
     environment:
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
       - ANISETTE_SERVER_URL=http://anisette:6969
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - JWT_SECRET=${JWT_SECRET:-super-secret-findmy-key-change-in-production}

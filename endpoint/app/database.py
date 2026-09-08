@@ -85,6 +85,7 @@ def run_direct_sqlite_migration():
                 ("ignore_separation_in_safe_zones", "BOOLEAN DEFAULT 1"),
                 ("last_separation_alert_time",      "DATETIME"),
                 ("last_separation_distance",        "REAL"),
+                ("notes",                           "TEXT"),
             ]:
                 if col not in dev_cols:
                     print(f"Direct Migration: Adding {col} column to devices...")

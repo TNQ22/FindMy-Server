@@ -104,6 +104,9 @@ class Accessory {
   /// Whether to suppress separation alerts when inside any safe zone
   bool ignoreSeparationInSafeZones = true;
 
+  /// User notes for the accessory (e.g. battery replacement date, custom remarks)
+  String? notes;
+
   /// Creates an accessory with the given properties.
   Accessory(
       {required this.id,
@@ -151,6 +154,7 @@ class Accessory {
     acc.separationAlertEnabled = separationAlertEnabled;
     acc.separationThresholdMeters = separationThresholdMeters;
     acc.ignoreSeparationInSafeZones = ignoreSeparationInSafeZones;
+    acc.notes = notes;
     return acc;
   }
 
@@ -171,6 +175,7 @@ class Accessory {
     separationAlertEnabled = newAccessory.separationAlertEnabled;
     separationThresholdMeters = newAccessory.separationThresholdMeters;
     ignoreSeparationInSafeZones = newAccessory.ignoreSeparationInSafeZones;
+    notes = newAccessory.notes;
   }
 
   /// The last known location of the accessory.
@@ -227,7 +232,8 @@ class Accessory {
         color = _parseColor(json['color']),
         lastBatteryStatus = _parseBatteryStatus(json['lastBatteryStatus']),
         hashesWithTS = _parseHashesWithTS(json['hashesWithTS']),
-        additionalKeys = _parseAdditionalKeys(json['additionalKeys']) {
+        additionalKeys = _parseAdditionalKeys(json['additionalKeys']),
+        notes = json['notes']?.toString() {
     _init();
   }
 
@@ -301,6 +307,7 @@ class Accessory {
       'hashesWithTS': jsonEncode(hashesWithTS),
       'additionalKeys': List<String>.from(additionalKeys),
       if (lastBatteryStatus != null) 'lastBatteryStatus': lastBatteryStatus!.name,
+      if (notes != null) 'notes': notes,
     };
   }
 

@@ -19,7 +19,17 @@ class Settings(BaseSettings):
     SMTP_PASS: str = ""
     SMTP_FROM: str = "FindMy Server <noreply@findmy.local>"
     ADMIN_EMAILS: str = ""
+    TZ: str = "Asia/Ho_Chi_Minh"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()
+
+def get_local_timezone():
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(settings.TZ)
+    except Exception:
+        from datetime import timezone, timedelta
+        return timezone(timedelta(hours=7))
+

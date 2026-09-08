@@ -55,6 +55,7 @@ class Device(Base):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_battery: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_alerted_battery: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Companion / Separation alert configuration
     is_master: Mapped[bool] = mapped_column(Boolean, default=False)

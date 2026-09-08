@@ -1,10 +1,11 @@
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from email.message import EmailMessage
 
-LOCAL_TZ = timezone(timedelta(hours=7))
 import aiosmtplib
-from app.config import settings
+from app.config import settings, get_local_timezone
+
+LOCAL_TZ = get_local_timezone()
 
 logger = logging.getLogger(__name__)
 

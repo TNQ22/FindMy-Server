@@ -31,12 +31,20 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
   late Accessory newAccessory;
   final _formKey = GlobalKey<FormState>();
   String _macAddress = "Đang tính toán...";
+  late TextEditingController _notesController;
 
   @override
   void initState() {
     newAccessory = widget.accessory.clone();
+    _notesController = TextEditingController(text: widget.accessory.notes ?? '');
     super.initState();
     _loadMacAddress();
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMacAddress() async {
@@ -280,6 +288,11 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                         ),
                       ),
 
+                      const SizedBox(height: 8),
+
+                      // Notes & Battery Tracking Card
+                      _buildNotesCard(),
+
                       const SizedBox(height: 10),
 
                       // Companion Settings Card
@@ -310,8 +323,12 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                                     var accessoryRegistry =
                                         Provider.of<AccessoryRegistry>(context,
                                             listen: false);
+                                    final updatedNotes = _notesController.text.trim();
+                                    newAccessory.notes = updatedNotes.isEmpty ? null : updatedNotes;
                                     accessoryRegistry.editAccessory(
                                         widget.accessory, newAccessory);
+                                    accessoryRegistry.updateDeviceNotes(
+                                        widget.accessory, updatedNotes);
                                     if (newAccessory.serverId != null) {
                                       accessoryRegistry.updateCompanionSettings(
                                         newAccessory.serverId!,
@@ -488,6 +505,69 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
         leading: Icon(icon, color: color, size: 24),
         title: const Text('Trạng thái Pin:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
         subtitle: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+      ),
+    );
+  }
+
+  Widget _buildNotesCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.withAlpha(40)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notes_rounded, color: Colors.teal.shade700, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Ghi Chú & Theo Dõi Pin',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Ghi lại ngày thay pin gần nhất, loại pin sử dụng, đồ vật gắn thẻ...',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _notesController,
+              maxLines: 3,
+              minLines: 2,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Ví dụ: Đã thay pin CR2032 ngày 08/09/2026. Để trong balo xách tay...',
+                hintStyle: TextStyle(fontSize: 12, color: isDark ? Colors.white30 : Colors.black26),
+                filled: true,
+                fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.withAlpha(50)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.withAlpha(50)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.teal.shade600, width: 1.5),
+                ),
+              ),
+              onChanged: (value) {
+                newAccessory.notes = value;
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
