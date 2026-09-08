@@ -95,51 +95,15 @@ class AccessoryListItemState extends State<AccessoryListItem> {
             ],
           ],
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              dateString,
-              style: TextStyle(
-                fontSize: 11.5,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.grey.shade400
-                    : Colors.grey.shade600,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (widget.accessory.notes != null && widget.accessory.notes!.trim().isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.sticky_note_2_outlined,
-                    size: 11,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.tealAccent.shade100
-                        : Colors.teal.shade700,
-                  ),
-                  const SizedBox(width: 3),
-                  Flexible(
-                    child: Text(
-                      widget.accessory.notes!.trim(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.tealAccent.shade100
-                            : Colors.teal.shade800,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
+        subtitle: Text(
+          dateString,
+          style: TextStyle(
+            fontSize: 11.5,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey.shade400
+                : Colors.grey.shade600,
+          ),
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
