@@ -292,6 +292,13 @@ class AccessoryRegistry extends ChangeNotifier {
           acc.ignoreSeparationInSafeZones =
               item['ignore_separation_in_safe_zones'] != false;
           acc.notes = item['notes'] as String?;
+          acc.batteryType = item['battery_type'] as String?;
+          if (item['battery_replaced_at'] != null) {
+            try {
+              acc.batteryReplacedAt =
+                  DateTime.parse(item['battery_replaced_at'] as String).toLocal();
+            } catch (_) {}
+          }
 
           syncedAccessories.add(acc);
           updated = true;
@@ -595,10 +602,24 @@ class AccessoryRegistry extends ChangeNotifier {
   }
 
   /// Updates notes / battery tracking info for an accessory on the backend & locally.
-  Future<bool> updateDeviceNotes(Accessory acc, String notes) async {
+  Future<bool> updateDeviceNotes(
+    Accessory acc, {
+    String? notes,
+    String? batteryType,
+    DateTime? batteryReplacedAt,
+  }) async {
     try {
-      final trimmed = notes.trim();
-      acc.notes = trimmed.isEmpty ? null : trimmed;
+      if (notes != null) {
+        final trimmed = notes.trim();
+        acc.notes = trimmed.isEmpty ? null : trimmed;
+      }
+      if (batteryType != null) {
+        final trimmedType = batteryType.trim();
+        acc.batteryType = trimmedType.isEmpty ? null : trimmedType;
+      }
+      if (batteryReplacedAt != null) {
+        acc.batteryReplacedAt = batteryReplacedAt;
+      }
       _storeAccessories();
       notifyListeners();
 
@@ -624,7 +645,12 @@ class AccessoryRegistry extends ChangeNotifier {
         final patchRes = await http.patch(
           Uri.parse('$_baseUrl/api/devices/$devId/notes'),
           headers: _authHeaders,
-          body: jsonEncode({'notes': acc.notes}),
+          body: jsonEncode({
+            'notes': acc.notes,
+            'battery_type': acc.batteryType,
+            'battery_replaced_at':
+                acc.batteryReplacedAt?.toUtc().toIso8601String(),
+          }),
         );
         if (patchRes.statusCode == 200) {
           return true;

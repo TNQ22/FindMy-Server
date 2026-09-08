@@ -34,10 +34,43 @@ class KeyManagement extends StatelessWidget {
                   ? DateFormat('dd/MM/yyyy - HH:mm')
                       .format(accessory.datePublished!)
                   : 'Chưa có vị trí';
+
+              String? batteryInfo;
+              if (accessory.batteryReplacedAt != null ||
+                  (accessory.batteryType != null && accessory.batteryType!.isNotEmpty)) {
+                final bType = accessory.batteryType ?? 'CR2032';
+                if (accessory.batteryReplacedAt != null) {
+                  final now = DateTime.now();
+                  final startOfToday = DateTime(now.year, now.month, now.day);
+                  final startOfReplaced = DateTime(
+                    accessory.batteryReplacedAt!.year,
+                    accessory.batteryReplacedAt!.month,
+                    accessory.batteryReplacedAt!.day,
+                  );
+                  final days = startOfToday.difference(startOfReplaced).inDays;
+                  final usage = days == 0
+                      ? 'hôm nay'
+                      : (days < 0 ? 'mới thay' : '$days ngày');
+                  batteryInfo = '$bType • Đã dùng $usage';
+                } else {
+                  batteryInfo = 'Loại pin: $bType';
+                }
+              }
+
               final bool hasNotes = accessory.notes != null &&
                   accessory.notes!.trim().isNotEmpty;
-              final String subtitleText =
-                  hasNotes ? accessory.notes!.trim() : lastSeen;
+              final bool hasBattery = batteryInfo != null;
+              final bool isCustomInfo = hasBattery || hasNotes;
+
+              String subtitleText = lastSeen;
+              if (hasBattery && hasNotes) {
+                subtitleText = '$batteryInfo — ${accessory.notes!.trim()}';
+              } else if (hasBattery) {
+                subtitleText = batteryInfo;
+              } else if (hasNotes) {
+                subtitleText = accessory.notes!.trim();
+              }
+
               return Material(
                 color: Colors.transparent,
                 child: ListTile(
@@ -84,8 +117,8 @@ class KeyManagement extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5,
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? (hasNotes ? Colors.tealAccent.shade100 : Colors.grey.shade400)
-                          : (hasNotes ? Colors.teal.shade800 : Colors.grey.shade600),
+                          ? (isCustomInfo ? Colors.tealAccent.shade100 : Colors.grey.shade400)
+                          : (isCustomInfo ? Colors.teal.shade800 : Colors.grey.shade600),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

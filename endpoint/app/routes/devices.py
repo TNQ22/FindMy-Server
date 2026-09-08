@@ -364,6 +364,10 @@ async def create_device(
         dev.private_key_b64 = body.private_key_b64
         if body.notes is not None:
             dev.notes = body.notes
+        if body.battery_type is not None:
+            dev.battery_type = body.battery_type
+        if body.battery_replaced_at is not None:
+            dev.battery_replaced_at = body.battery_replaced_at
         await restore_history(dev)
         await db.commit()
         await db.refresh(dev)
@@ -376,6 +380,8 @@ async def create_device(
         hashed_adv_key = derived_hashed_key,
         private_key_b64 = body.private_key_b64,
         notes          = body.notes,
+        battery_type   = body.battery_type,
+        battery_replaced_at = body.battery_replaced_at,
     )
     db.add(device)
     await restore_history(device)
@@ -545,7 +551,13 @@ async def update_device_notes(
     if not device:
         raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
 
-    device.notes = body.notes
+    if body.notes is not None:
+        device.notes = body.notes
+    if body.battery_type is not None:
+        device.battery_type = body.battery_type
+    if body.battery_replaced_at is not None:
+        device.battery_replaced_at = body.battery_replaced_at
+
     await db.commit()
     await db.refresh(device)
     return device

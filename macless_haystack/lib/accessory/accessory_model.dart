@@ -107,6 +107,12 @@ class Accessory {
   /// User notes for the accessory (e.g. battery replacement date, custom remarks)
   String? notes;
 
+  /// Battery model / type (e.g. CR2032, CR2025)
+  String? batteryType;
+
+  /// Timestamp when battery was last replaced
+  DateTime? batteryReplacedAt;
+
   /// Creates an accessory with the given properties.
   Accessory(
       {required this.id,
@@ -155,6 +161,8 @@ class Accessory {
     acc.separationThresholdMeters = separationThresholdMeters;
     acc.ignoreSeparationInSafeZones = ignoreSeparationInSafeZones;
     acc.notes = notes;
+    acc.batteryType = batteryType;
+    acc.batteryReplacedAt = batteryReplacedAt;
     return acc;
   }
 
@@ -176,6 +184,8 @@ class Accessory {
     separationThresholdMeters = newAccessory.separationThresholdMeters;
     ignoreSeparationInSafeZones = newAccessory.ignoreSeparationInSafeZones;
     notes = newAccessory.notes;
+    batteryType = newAccessory.batteryType;
+    batteryReplacedAt = newAccessory.batteryReplacedAt;
   }
 
   /// The last known location of the accessory.
@@ -233,8 +243,20 @@ class Accessory {
         lastBatteryStatus = _parseBatteryStatus(json['lastBatteryStatus']),
         hashesWithTS = _parseHashesWithTS(json['hashesWithTS']),
         additionalKeys = _parseAdditionalKeys(json['additionalKeys']),
-        notes = json['notes']?.toString() {
+        notes = json['notes']?.toString(),
+        batteryType = json['batteryType']?.toString() ?? json['battery_type']?.toString(),
+        batteryReplacedAt = _parseDateTime(json['batteryReplacedAt'] ?? json['battery_replaced_at']) {
     _init();
+  }
+
+  static DateTime? _parseDateTime(dynamic val) {
+    if (val == null) return null;
+    try {
+      if (val is DateTime) return val;
+      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+      if (val is String && val.isNotEmpty) return DateTime.parse(val);
+    } catch (_) {}
+    return null;
   }
 
   static Color _parseColor(dynamic val) {
@@ -308,6 +330,8 @@ class Accessory {
       'additionalKeys': List<String>.from(additionalKeys),
       if (lastBatteryStatus != null) 'lastBatteryStatus': lastBatteryStatus!.name,
       if (notes != null) 'notes': notes,
+      if (batteryType != null) 'batteryType': batteryType,
+      if (batteryReplacedAt != null) 'batteryReplacedAt': batteryReplacedAt!.toIso8601String(),
     };
   }
 

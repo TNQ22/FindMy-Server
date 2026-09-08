@@ -86,6 +86,8 @@ def run_direct_sqlite_migration():
                 ("last_separation_alert_time",      "DATETIME"),
                 ("last_separation_distance",        "REAL"),
                 ("notes",                           "TEXT"),
+                ("battery_type",                    "VARCHAR(50)"),
+                ("battery_replaced_at",             "DATETIME"),
             ]:
                 if col not in dev_cols:
                     print(f"Direct Migration: Adding {col} column to devices...")

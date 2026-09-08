@@ -10,6 +10,7 @@ import 'package:macless_haystack/accessory/accessory_icon_selector.dart';
 import 'package:macless_haystack/accessory/accessory_model.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:macless_haystack/item_management/accessory_name_input.dart';
+import 'package:intl/intl.dart';
 
 class AccessoryDetail extends StatefulWidget {
   final Accessory accessory;
@@ -288,11 +289,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                         ),
                       ),
 
-                      const SizedBox(height: 8),
-
-                      // Notes & Battery Tracking Card
-                      _buildNotesCard(),
-
                       const SizedBox(height: 10),
 
                       // Companion Settings Card
@@ -328,7 +324,10 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                                     accessoryRegistry.editAccessory(
                                         widget.accessory, newAccessory);
                                     accessoryRegistry.updateDeviceNotes(
-                                        widget.accessory, updatedNotes);
+                                        widget.accessory,
+                                        notes: newAccessory.notes,
+                                        batteryType: newAccessory.batteryType,
+                                        batteryReplacedAt: newAccessory.batteryReplacedAt);
                                     if (newAccessory.serverId != null) {
                                       accessoryRegistry.updateCompanionSettings(
                                         newAccessory.serverId!,
@@ -491,26 +490,20 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
         color = Colors.red;
         break;
       default:
-        text = 'Không xác định / Chưa có dữ liệu';
+        text = 'Chưa có dữ liệu';
         icon = Icons.battery_unknown;
         color = Colors.grey;
     }
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.withAlpha(40)),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: color, size: 24),
-        title: const Text('Trạng thái Pin:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        subtitle: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
-      ),
-    );
-  }
 
-  Widget _buildNotesCard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bType = (newAccessory.batteryType != null && newAccessory.batteryType!.isNotEmpty)
+        ? newAccessory.batteryType!
+        : 'CR2032';
+    final replacedStr = newAccessory.batteryReplacedAt != null
+        ? DateFormat('dd/MM/yyyy').format(newAccessory.batteryReplacedAt!)
+        : 'Chưa đặt';
+    final usageStr = _calculateBatteryUsage(newAccessory.batteryReplacedAt);
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -518,56 +511,299 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
         side: BorderSide(color: Colors.grey.withAlpha(40)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(Icons.notes_rounded, color: Colors.teal.shade700, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'Ghi Chú & Theo Dõi Pin',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-              ],
+            // Left: Apple FindMy Battery Status
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Trạng thái Pin:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    text,
+                    style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Ghi lại ngày thay pin gần nhất, loại pin sử dụng, đồ vật gắn thẻ...',
-              style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54),
+
+            // Divider separating Left and Right
+            Container(
+              height: 46,
+              width: 1,
+              color: isDark ? Colors.white12 : Colors.grey.shade300,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _notesController,
-              maxLines: 3,
-              minLines: 2,
-              style: const TextStyle(fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Ví dụ: Đã thay pin CR2032 ngày 08/09/2026. Để trong balo xách tay...',
-                hintStyle: TextStyle(fontSize: 12, color: isDark ? Colors.white30 : Colors.black26),
-                filled: true,
-                fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.withAlpha(50)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.withAlpha(50)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.teal.shade600, width: 1.5),
+
+            // Right: Battery Tracking Management
+            Expanded(
+              flex: 7,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: _showBatteryManagementDialog,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    bType,
+                                    style: TextStyle(
+                                      color: isDark ? Colors.tealAccent.shade100 : Colors.teal.shade800,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Thay: $replacedStr',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Icon(Icons.timer_outlined, size: 12, color: Colors.teal.shade600),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Đã dùng: $usageStr',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.tealAccent.shade100 : Colors.teal.shade800,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'Thiết lập ngày thay & loại pin',
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.edit, size: 14, color: Colors.teal),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              onChanged: (value) {
-                newAccessory.notes = value;
-              },
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  String _calculateBatteryUsage(DateTime? replacedAt) {
+    if (replacedAt == null) return 'Chưa đặt';
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final startOfReplaced = DateTime(replacedAt.year, replacedAt.month, replacedAt.day);
+    final days = startOfToday.difference(startOfReplaced).inDays;
+
+    if (days < 0) return 'Mới thay';
+    if (days == 0) return 'Hôm nay';
+    if (days < 30) return '$days ngày';
+    final months = days ~/ 30;
+    final remDays = days % 30;
+    if (remDays == 0) return '$months tháng';
+    return '$months th $remDays ng ($days ng)';
+  }
+
+  void _showBatteryManagementDialog() {
+    DateTime selectedDate = newAccessory.batteryReplacedAt ?? DateTime.now();
+    final typeController = TextEditingController(
+      text: newAccessory.batteryType ?? 'CR2032',
+    );
+    final noteController = TextEditingController(
+      text: newAccessory.notes ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final dateStr = DateFormat('dd/MM/yyyy').format(selectedDate);
+          final daysUsed = _calculateBatteryUsage(selectedDate);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.battery_charging_full, color: Colors.teal),
+                const SizedBox(width: 8),
+                const Text('Quản Lý & Theo Dõi Pin', style: TextStyle(fontSize: 16)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Loại Pin:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: typeController,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Ví dụ: CR2032, CR2025, AAA...',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: ['CR2032', 'CR2025', 'CR2016', 'AAA'].map((t) {
+                      return ActionChip(
+                        label: Text(t, style: const TextStyle(fontSize: 11)),
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          setDialogState(() {
+                            typeController.text = t;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+
+                  const Text('Ngày Thay Pin:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.calendar_today, size: 16, color: Colors.teal),
+                          label: Text(dateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now().add(const Duration(days: 1)),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                selectedDate = picked;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            selectedDate = DateTime.now();
+                          });
+                        },
+                        child: const Text('Hôm nay', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Đã dùng: $daysUsed',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  const Text('Ghi Chú Pin / Vị Trí (Tùy chọn):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: noteController,
+                    maxLines: 2,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Ví dụ: Pin Maxell mua Shopee, để trong balo laptop...',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  setState(() {
+                    newAccessory.batteryType = typeController.text.trim().isEmpty ? null : typeController.text.trim();
+                    newAccessory.batteryReplacedAt = selectedDate;
+                    _notesController.text = noteController.text.trim();
+                    newAccessory.notes = noteController.text.trim().isEmpty ? null : noteController.text.trim();
+                  });
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Áp Dụng'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

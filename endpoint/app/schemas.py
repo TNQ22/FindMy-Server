@@ -78,9 +78,13 @@ class DeviceCreateRequest(BaseModel):
     hashed_adv_key: str
     private_key_b64: str | None = None
     notes: str | None = None
+    battery_type: str | None = None
+    battery_replaced_at: datetime | None = None
 
 class DeviceNotesRequest(BaseModel):
     notes: str | None = None
+    battery_type: str | None = None
+    battery_replaced_at: datetime | None = None
 
 from pydantic import BaseModel, Field, field_validator
 from datetime import timezone
@@ -97,6 +101,8 @@ class DeviceResponse(BaseModel):
     last_seen_at: datetime | None = None
     last_battery: str | None = None
     notes: str | None = None
+    battery_type: str | None = None
+    battery_replaced_at: datetime | None = None
     owner_user_id: Optional[int] = None
     is_owner: bool = True
     is_master: bool = False
@@ -107,7 +113,7 @@ class DeviceResponse(BaseModel):
     last_separation_alert_time: Optional[datetime] = None
     last_separation_distance: Optional[float] = None
 
-    @field_validator('created_at', 'last_seen_at', 'last_separation_alert_time', mode='after')
+    @field_validator('created_at', 'last_seen_at', 'last_separation_alert_time', 'battery_replaced_at', mode='after')
     @classmethod
     def set_utc(cls, v):
         if isinstance(v, datetime) and v.tzinfo is None:
