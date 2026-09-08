@@ -194,10 +194,10 @@ async def evaluate_device_geofence(
                     zd.last_alert_time = event_naive
                     zd.last_alert_type = alert_type
 
-                    # Dispatch notifications asynchronously
+                    # Dispatch notifications sequentially to preserve strict chronological order
                     if zone.user:
-                        asyncio.create_task(
-                            dispatch_geofence_notification(
+                        try:
+                            await dispatch_geofence_notification(
                                 user=zone.user,
                                 device_name=device.name,
                                 zone_name=zone.name,
@@ -208,7 +208,10 @@ async def evaluate_device_geofence(
                                 radius=zone.radius,
                                 event_time=event_time,
                             )
-                        )
+                            # Small pause to guarantee sequential arrival in Telegram / Discord chats
+                            await asyncio.sleep(0.5)
+                        except Exception as notif_err:
+                            logger.error(f"Error dispatching geofence notification: {notif_err}")
 
             # Update zone_device state
             zd.last_status = new_status

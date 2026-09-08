@@ -1,9 +1,11 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import aiohttp
 from app.config import settings
 from app.models import User
+
+LOCAL_TZ = timezone(timedelta(hours=7))
 from app.services.email_service import (
     send_low_battery_alert,
     send_icloud_status_alert,
@@ -191,7 +193,7 @@ async def dispatch_icloud_status_notification(user: User, apple_id: str, reason:
     Dispatches iCloud failure alert across all user-configured channels.
     """
     cfg = get_user_notification_settings(user)
-    now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    now_str = datetime.now(LOCAL_TZ).strftime("%H:%M:%S %d/%m/%Y")
 
     # 1. Email Alert
     if cfg.get("email_alerts_enabled", True) and user.email:
@@ -267,7 +269,7 @@ async def dispatch_geofence_notification(
     event_dt = event_time if event_time else datetime.now(timezone.utc)
     if event_dt.tzinfo is None:
         event_dt = event_dt.replace(tzinfo=timezone.utc)
-    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    time_str = event_dt.astimezone(LOCAL_TZ).strftime("%H:%M:%S %d/%m/%Y")
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
 
     # 1. Email Alert
@@ -367,7 +369,7 @@ async def dispatch_separation_notification(
     event_dt = event_time if event_time else datetime.now(timezone.utc)
     if event_dt.tzinfo is None:
         event_dt = event_dt.replace(tzinfo=timezone.utc)
-    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    time_str = event_dt.astimezone(LOCAL_TZ).strftime("%H:%M:%S %d/%m/%Y")
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
 
     # 1. Email Alert
@@ -463,7 +465,7 @@ async def dispatch_zone_schedule_notification(
     event_dt = event_time if event_time else datetime.now(timezone.utc)
     if event_dt.tzinfo is None:
         event_dt = event_dt.replace(tzinfo=timezone.utc)
-    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    time_str = event_dt.astimezone(LOCAL_TZ).strftime("%H:%M:%S %d/%m/%Y")
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}" if lat and lon else ""
 
     # 1. Email Alert

@@ -1,6 +1,8 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
+
+LOCAL_TZ = timezone(timedelta(hours=7))
 import aiosmtplib
 from app.config import settings
 
@@ -186,7 +188,7 @@ async def send_geofence_alert(
     event_dt = event_time if event_time else datetime.now(timezone.utc)
     if event_dt.tzinfo is None:
         event_dt = event_dt.replace(tzinfo=timezone.utc)
-    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    time_str = event_dt.astimezone(LOCAL_TZ).strftime("%H:%M:%S %d/%m/%Y")
 
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
 
@@ -274,7 +276,7 @@ async def send_separation_alert(
     event_dt = event_time if event_time else datetime.now(timezone.utc)
     if event_dt.tzinfo is None:
         event_dt = event_dt.replace(tzinfo=timezone.utc)
-    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    time_str = event_dt.astimezone(LOCAL_TZ).strftime("%H:%M:%S %d/%m/%Y")
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
 
     msg['Subject'] = f"⚠️ {title_text}"
@@ -363,7 +365,7 @@ async def send_zone_schedule_alert(
     event_dt = event_time if event_time else datetime.now(timezone.utc)
     if event_dt.tzinfo is None:
         event_dt = event_dt.replace(tzinfo=timezone.utc)
-    time_str = event_dt.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    time_str = event_dt.astimezone(LOCAL_TZ).strftime("%H:%M:%S %d/%m/%Y")
 
     maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}" if lat and lon else ""
 

@@ -174,8 +174,8 @@ async def _check_pair_separation(
 
             target_user = companion.user or master.user
             if target_user:
-                asyncio.create_task(
-                    dispatch_separation_notification(
+                try:
+                    await dispatch_separation_notification(
                         user=target_user,
                         companion_name=companion.name,
                         master_name=master.name,
@@ -185,4 +185,6 @@ async def _check_pair_separation(
                         lon=companion_lon,
                         event_time=event_time,
                     )
-                )
+                    await asyncio.sleep(0.5)
+                except Exception as notif_err:
+                    logger.error(f"Error dispatching separation notification: {notif_err}")
