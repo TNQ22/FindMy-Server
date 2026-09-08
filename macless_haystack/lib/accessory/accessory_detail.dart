@@ -239,6 +239,47 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
 
                       const SizedBox(height: 10),
 
+                      // Notes Input (ngay dưới tên tag)
+                      TextFormField(
+                        controller: _notesController,
+                        maxLines: 2,
+                        minLines: 1,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Ghi chú',
+                          hintText: 'Ghi chú thẻ (ví dụ: Chìa khóa xe, Balo laptop...)',
+                          hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white30
+                                : Colors.black26,
+                          ),
+                          prefixIcon: const Icon(Icons.edit_note, color: Colors.teal, size: 20),
+                          filled: true,
+                          fillColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.04)
+                              : Colors.grey.shade50,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.withAlpha(50)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.withAlpha(50)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.teal.shade600, width: 1.5),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          newAccessory.notes = value;
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
                       // Active Switch Tile
                       Card(
                         elevation: 0,
