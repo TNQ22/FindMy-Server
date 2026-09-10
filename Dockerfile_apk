@@ -9,9 +9,11 @@ COPY macless_haystack /app_android
 # Update Android scaffold to match modern Flutter Gradle structure while preserving AndroidManifest
 RUN if [ -f /app_android/android/app/src/main/AndroidManifest.xml ]; then \
       cp /app_android/android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml && \
+      rm -rf /app_android/android && \
       flutter create --platforms=android --org de.dchristl . && \
       cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml; \
     else \
+      rm -rf /app_android/android && \
       flutter create --platforms=android --org de.dchristl .; \
     fi
 
@@ -20,7 +22,7 @@ RUN yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager --licenses 
 
 # Fetch dependencies and compile Release APK
 RUN flutter pub get \
-    && flutter build apk --release --no-tree-shake-icons
+    && flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
 # === Stage 2: Export APK directly to host ===
 FROM scratch AS export-stage
