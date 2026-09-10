@@ -10,11 +10,11 @@ COPY macless_haystack /app_android
 RUN if [ -f /app_android/android/app/src/main/AndroidManifest.xml ]; then \
       cp /app_android/android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml && \
       rm -rf /app_android/android && \
-      flutter create --platforms=android --org de.dchristl . && \
+      flutter create --no-pub --platforms=android --org de.dchristl . && \
       cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml; \
     else \
       rm -rf /app_android/android && \
-      flutter create --platforms=android --org de.dchristl .; \
+      flutter create --no-pub --platforms=android --org de.dchristl .; \
     fi
 
 # Accept Android SDK licenses

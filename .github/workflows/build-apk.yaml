@@ -46,12 +46,13 @@ jobs:
         run: |
           cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml
           rm -rf android
-          flutter create --platforms=android --org de.dchristl .
+          flutter create --no-pub --platforms=android --org de.dchristl .
           cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
       - name: Install Dependencies
         working-directory: ./macless_haystack
-        run: flutter pub get
+        run: |
+          for i in 1 2 3; do flutter pub get && break || (echo "Retrying pub get..." && sleep 5); done
 
       - name: Build Release APK
         working-directory: ./macless_haystack
