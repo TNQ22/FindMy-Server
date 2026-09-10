@@ -54,6 +54,5 @@ macless_haystack/build/
 macless_haystack/.flutter-plugins
 macless_haystack/.flutter-plugins-dependencies
 macless_haystack/.packages
-macless_haystack/android/
 macless_haystack/linux/
 macless_haystack/test/

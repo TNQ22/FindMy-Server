@@ -6,12 +6,14 @@ WORKDIR /app_android
 # Copy Flutter project source
 COPY macless_haystack /app_android
 
-# Backup customized AndroidManifest with Bluetooth permissions
-RUN cp /app_android/android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml
-
-# Update Android scaffold to match modern Flutter Gradle structure
-RUN flutter create --platforms=android --org de.dchristl . \
-    && cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml
+# Update Android scaffold to match modern Flutter Gradle structure while preserving AndroidManifest
+RUN if [ -f /app_android/android/app/src/main/AndroidManifest.xml ]; then \
+      cp /app_android/android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml && \
+      flutter create --platforms=android --org de.dchristl . && \
+      cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml; \
+    else \
+      flutter create --platforms=android --org de.dchristl .; \
+    fi
 
 # Accept Android SDK licenses
 RUN yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager --licenses || true
