@@ -15,6 +15,7 @@ class AccessoryListItem extends StatefulWidget {
   final Placemark? herePlace;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final bool isTracked;
 
   const AccessoryListItem({
     super.key,
@@ -23,6 +24,7 @@ class AccessoryListItem extends StatefulWidget {
     this.onLongPress,
     this.distanceText,
     this.herePlace,
+    this.isTracked = false,
   });
 
   @override
@@ -52,9 +54,13 @@ class AccessoryListItemState extends State<AccessoryListItem> {
         ? DateFormat('dd/MM/yyyy - HH:mm').format(widget.accessory.datePublished!)
         : 'Chưa có vị trí';
 
+    final Color effectiveTileColor = widget.isTracked
+        ? Colors.teal.withOpacity(0.12)
+        : _tileColor;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      color: _tileColor,
+      color: effectiveTileColor,
       child: ListTile(
         onTap: widget.onTap,
         dense: true,
@@ -91,6 +97,26 @@ class AccessoryListItemState extends State<AccessoryListItem> {
               const Tooltip(
                 message: 'Tag đồng hành (đi kèm thiết bị chủ)',
                 child: Text('🔗', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+            if (widget.accessory.isShared) ...[
+              const SizedBox(width: 4),
+              Tooltip(
+                message: widget.accessory.isOwner
+                    ? 'Đang chia sẻ với người khác'
+                    : 'Được chia sẻ với bạn',
+                child: const Icon(
+                  Icons.share,
+                  size: 13,
+                  color: Colors.teal,
+                ),
+              ),
+            ],
+            if (widget.isTracked) ...[
+              const SizedBox(width: 4),
+              const Tooltip(
+                message: 'Đang bật chế độ theo dõi mục tiêu',
+                child: Icon(Icons.radar, size: 14, color: Colors.teal),
               ),
             ],
           ],

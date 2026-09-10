@@ -110,6 +110,19 @@ class KeyManagement extends StatelessWidget {
                           child: Text('🔗', style: TextStyle(fontSize: 12)),
                         ),
                       ],
+                      if (accessory.isShared) ...[
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: accessory.isOwner
+                              ? 'Đang chia sẻ với người khác'
+                              : 'Được chia sẻ với bạn',
+                          child: const Icon(
+                            Icons.share,
+                            size: 13,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   subtitle: Text(

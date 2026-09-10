@@ -291,6 +291,8 @@ class AccessoryRegistry extends ChangeNotifier {
               (item['separation_threshold_meters'] as num?)?.toDouble() ?? 150.0;
           acc.ignoreSeparationInSafeZones =
               item['ignore_separation_in_safe_zones'] != false;
+          acc.isShared = item['is_shared'] == true;
+          acc.isOwner = item['is_owner'] != false;
           acc.notes = item['notes'] as String?;
           acc.batteryType = item['battery_type'] as String?;
           if (item['battery_replaced_at'] != null) {
@@ -457,6 +459,45 @@ class AccessoryRegistry extends ChangeNotifier {
     };
     _accessories.sort((a, b) => positionMap[a]!.compareTo(positionMap[b]!));
     _storeAccessories();
+  }
+
+  void updateAccessoryShareStatus(String hashedPublicKey, bool isShared, {bool? isOwner}) {
+    for (var acc in _accessories) {
+      if (acc.hashedPublicKey == hashedPublicKey) {
+        acc.isShared = isShared;
+        if (isOwner != null) acc.isOwner = isOwner;
+        _storeAccessories();
+        notifyListeners();
+        break;
+      }
+    }
+  }
+
+  // ── Target Tag Tracking Mode ───────────────────────────────────────────────
+  String? _trackedAccessoryKey;
+  bool _shouldFitTracking = false;
+
+  String? get trackedAccessoryKey => _trackedAccessoryKey;
+  bool get shouldFitTracking => _shouldFitTracking;
+
+  void setTrackedAccessory(Accessory? accessory, {bool fitCamera = true}) {
+    if (accessory == null) {
+      clearTrackedAccessory();
+      return;
+    }
+    _trackedAccessoryKey = accessory.hashedPublicKey;
+    _shouldFitTracking = fitCamera;
+    notifyListeners();
+  }
+
+  void clearTrackedAccessory() {
+    _trackedAccessoryKey = null;
+    _shouldFitTracking = false;
+    notifyListeners();
+  }
+
+  void consumeFitTracking() {
+    _shouldFitTracking = false;
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────

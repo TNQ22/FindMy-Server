@@ -146,3 +146,6 @@ venv/
 .venv/
 notes.txt
 dev.env
+
+# antigravity rules
+.agents/rules

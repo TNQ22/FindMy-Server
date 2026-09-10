@@ -104,10 +104,16 @@ class Accessory {
   /// Whether to suppress separation alerts when inside any safe zone
   bool ignoreSeparationInSafeZones = true;
 
+  /// Whether this tag is currently shared (shared to others or shared from someone)
+  bool isShared = false;
+
+  /// Whether the current user is the owner of this tag
+  bool isOwner = true;
+
   /// User notes for the accessory (e.g. battery replacement date, custom remarks)
   String? notes;
 
-  /// Battery model / type (e.g. CR2032, CR2025)
+  /// Battery model / type (e.g. LR44, CR1620, CR1632, CR2016, CR2032, CR2430)
   String? batteryType;
 
   /// Timestamp when battery was last replaced
@@ -160,6 +166,8 @@ class Accessory {
     acc.separationAlertEnabled = separationAlertEnabled;
     acc.separationThresholdMeters = separationThresholdMeters;
     acc.ignoreSeparationInSafeZones = ignoreSeparationInSafeZones;
+    acc.isShared = isShared;
+    acc.isOwner = isOwner;
     acc.notes = notes;
     acc.batteryType = batteryType;
     acc.batteryReplacedAt = batteryReplacedAt;
@@ -183,6 +191,8 @@ class Accessory {
     separationAlertEnabled = newAccessory.separationAlertEnabled;
     separationThresholdMeters = newAccessory.separationThresholdMeters;
     ignoreSeparationInSafeZones = newAccessory.ignoreSeparationInSafeZones;
+    isShared = newAccessory.isShared;
+    isOwner = newAccessory.isOwner;
     notes = newAccessory.notes;
     batteryType = newAccessory.batteryType;
     batteryReplacedAt = newAccessory.batteryReplacedAt;
@@ -243,6 +253,8 @@ class Accessory {
         lastBatteryStatus = _parseBatteryStatus(json['lastBatteryStatus']),
         hashesWithTS = _parseHashesWithTS(json['hashesWithTS']),
         additionalKeys = _parseAdditionalKeys(json['additionalKeys']),
+        isShared = json['isShared'] ?? json['is_shared'] ?? false,
+        isOwner = json['isOwner'] ?? json['is_owner'] ?? true,
         notes = json['notes']?.toString(),
         batteryType = json['batteryType']?.toString() ?? json['battery_type']?.toString(),
         batteryReplacedAt = _parseDateTime(json['batteryReplacedAt'] ?? json['battery_replaced_at']) {
@@ -328,6 +340,8 @@ class Accessory {
       'color': colorHex,
       'hashesWithTS': jsonEncode(hashesWithTS),
       'additionalKeys': List<String>.from(additionalKeys),
+      'isShared': isShared,
+      'isOwner': isOwner,
       if (lastBatteryStatus != null) 'lastBatteryStatus': lastBatteryStatus!.name,
       if (notes != null) 'notes': notes,
       if (batteryType != null) 'batteryType': batteryType,

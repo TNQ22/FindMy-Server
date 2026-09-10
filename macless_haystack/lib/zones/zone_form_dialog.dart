@@ -210,78 +210,72 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
           maxWidth: isMobile ? double.infinity : 600,
           maxHeight: mediaQuery.size.height * 0.90,
         ),
-        child: Column(
-          children: [
-            // Top Bar with Emerald Green / Teal Gradient
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 14 : 20,
-                vertical: isMobile ? 12 : 16,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.teal.shade800, Colors.teal.shade600],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              // Top Bar with Emerald Green / Teal Gradient
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 14 : 20,
+                  vertical: isMobile ? 12 : 16,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal.shade800, Colors.teal.shade600],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isEditing ? Icons.edit_location_alt_outlined : Icons.add_location_alt_outlined,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isEditing ? 'Chỉnh Sửa Khu Vực Cảnh Báo' : 'Tạo Khu Vực Cảnh Báo Mới',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isMobile ? 16 : 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Cấu hình bán kính hoặc vùng đa giác định vị',
+                            style: TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isEditing ? Icons.edit_location_alt_outlined : Icons.add_location_alt_outlined,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isEditing ? 'Chỉnh Sửa Khu Vực Cảnh Báo' : 'Tạo Khu Vực Cảnh Báo Mới',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: isMobile ? 16 : 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Cấu hình bán kính hoặc vùng đa giác định vị',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
 
-            // Form Body
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.all(isMobile ? 12 : 18),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-
-              // Form fields
+              // Form fields (Clipped cleanly between Top Bar and Bottom Bar)
               Expanded(
                 child: ListView(
-                  clipBehavior: Clip.none,
-                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 14 : 20,
+                    vertical: 16,
+                  ),
                   children: [
                     // Tên khu vực
                     TextFormField(
@@ -468,99 +462,152 @@ class _ZoneFormDialogState extends State<ZoneFormDialog> {
                 ),
               ),
 
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
+              // Fixed Bottom Action Bar with Solid Opaque Background
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 14 : 20,
+                  vertical: isMobile ? 10 : 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context).dividerColor.withOpacity(0.12),
+                      width: 1,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      offset: const Offset(0, -2),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 440;
 
-              // Buttons & Active Switch (Trái: Kích hoạt theo dõi, Phải: Hủy bỏ & Tạo khu vực, tự xuống dòng khi màn hình hẹp)
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isCompact = constraints.maxWidth < 440;
+                      final leftSwitch = InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => _isActive = !_isActive),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Switch(
+                                value: _isActive,
+                                activeColor: Colors.teal,
+                                onChanged: (val) => setState(() => _isActive = val),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Kích hoạt theo dõi',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: _isActive ? Colors.teal : Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
 
-                  final leftSwitch = InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => setState(() => _isActive = !_isActive),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      child: Row(
+                      final rightButtons = Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Switch(
-                            value: _isActive,
-                            activeColor: Colors.teal,
-                            onChanged: (val) => setState(() => _isActive = val),
+                          TextButton(
+                            onPressed: _submitting ? null : () => Navigator.pop(context),
+                            child: const Text('Hủy bỏ'),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Kích hoạt theo dõi',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: _isActive ? Colors.teal : Colors.grey,
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
+                            icon: _submitting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.check, size: 18),
+                            label: Text(isEditing ? 'Lưu thay đổi' : 'Tạo Khu vực'),
+                            onPressed: _submitting ? null : _submit,
                           ),
                         ],
-                      ),
-                    ),
-                  );
+                      );
 
-                  final rightButtons = Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(
-                        onPressed: _submitting ? null : () => Navigator.pop(context),
-                        child: const Text('Hủy bỏ'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        icon: _submitting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.check, size: 18),
-                        label: Text(isEditing ? 'Lưu thay đổi' : 'Tạo Khu vực'),
-                        onPressed: _submitting ? null : _submit,
-                      ),
-                    ],
-                  );
+                      if (isCompact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            leftSwitch,
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 11),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      side: BorderSide(color: Colors.grey.shade400),
+                                    ),
+                                    onPressed: _submitting ? null : () => Navigator.pop(context),
+                                    child: const Text('Hủy bỏ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 3,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 11),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    icon: _submitting
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : const Icon(Icons.check, size: 18),
+                                    label: Text(
+                                      isEditing ? 'Lưu thay đổi' : 'Tạo Khu vực',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    onPressed: _submitting ? null : _submit,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
 
-                  if (isCompact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        leftSwitch,
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: rightButtons,
-                        ),
-                      ],
-                    );
-                  }
-
-                  return Row(
-                    children: [
-                      leftSwitch,
-                      const Spacer(),
-                      rightButtons,
-                    ],
-                  );
-                },
-              ),
-                    ],
+                      return Row(
+                        children: [
+                          leftSwitch,
+                          const Spacer(),
+                          rightButtons,
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

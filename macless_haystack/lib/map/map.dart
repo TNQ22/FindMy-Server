@@ -101,6 +101,49 @@ class _AccessoryMapState extends State<AccessoryMap> {
     }
   }
 
+  void fitToTracking(Accessory accessory, LatLng? hereLocation) async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+
+    final targetLoc = accessory.lastLocation;
+    if (targetLoc == null && hereLocation == null) return;
+
+    final isDesktop = MediaQuery.of(context).size.width >= 720;
+    final insets = EdgeInsets.fromLTRB(
+      isDesktop ? 466 : 35,
+      isDesktop ? 70 : 35,
+      isDesktop ? 127 : 92,
+      isDesktop ? 70 : 35,
+    );
+
+    if (targetLoc != null && hereLocation != null) {
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints([targetLoc, hereLocation]),
+          padding: insets,
+          maxZoom: 17.0,
+          minZoom: 2.0,
+        ),
+      );
+    } else if (targetLoc != null) {
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints([targetLoc]),
+          padding: insets,
+          maxZoom: 16.5,
+        ),
+      );
+    } else if (hereLocation != null) {
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints([hereLocation]),
+          padding: insets,
+          maxZoom: 16.5,
+        ),
+      );
+    }
+  }
+
   Widget _buildMapFabWithTooltip({
     required String tooltip,
     required Widget child,
@@ -119,6 +162,37 @@ class _AccessoryMapState extends State<AccessoryMap> {
       builder: (BuildContext context, AccessoryRegistry accessoryRegistry,
           LocationModel locationModel, ZoneRegistry zoneRegistry, Widget? child) {
         var accessories = accessoryRegistry.accessories;
+
+        Accessory? trackedAccessory;
+        if (accessoryRegistry.trackedAccessoryKey != null) {
+          for (var a in accessories) {
+            if (a.hashedPublicKey == accessoryRegistry.trackedAccessoryKey) {
+              trackedAccessory = a;
+              break;
+            }
+          }
+        }
+
+        if (accessoryRegistry.shouldFitTracking && trackedAccessory != null) {
+          accessoryRegistry.consumeFitTracking();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            fitToTracking(trackedAccessory!, locationModel.here);
+          });
+        }
+
+        String? trackingDistStr;
+        if (trackedAccessory?.lastLocation != null && locationModel.here != null) {
+          const Distance distance = Distance();
+          final double km = distance.as(
+              LengthUnit.Kilometer, locationModel.here!, trackedAccessory!.lastLocation!);
+          if (km < 1) {
+            trackingDistStr = '${(km * 1000).round()} m';
+          } else if (km < 10) {
+            trackingDistStr = '${km.toStringAsFixed(1)} km';
+          } else {
+            trackingDistStr = '${km.round()} km';
+          }
+        }
         
         // Focus zone requested by user
         if (zoneRegistry.focusedZone != null) {
@@ -251,13 +325,31 @@ class _AccessoryMapState extends State<AccessoryMap> {
                     }).toList(),
                   ),
 
+                // Target Tracking Direct Line between Device & Tag
+                if (trackedAccessory != null &&
+                    trackedAccessory.lastLocation != null &&
+                    locationModel.here != null)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: [locationModel.here!, trackedAccessory.lastLocation!],
+                        strokeWidth: 3.5,
+                        color: Colors.tealAccent.shade400,
+                      ),
+                    ],
+                  ),
+
                 // Accessories Markers Layer
                 MarkerLayer(markers: [
                   ...accessories.where((a) => a.isActive).map(
-                        (a) => a.lastLocation != null
+                        (a) {
+                          final isTracked = trackedAccessory != null &&
+                              a.hashedPublicKey == trackedAccessory.hashedPublicKey;
+
+                          return a.lastLocation != null
                             ? Marker(
-                                width: 40,
-                                height: 40,
+                                width: isTracked ? 48 : 40,
+                                height: isTracked ? 48 : 40,
                                 point: a.lastLocation!,
                                 child: Stack(
                                   children: [
@@ -267,6 +359,20 @@ class _AccessoryMapState extends State<AccessoryMap> {
                                             .colorScheme
                                             .surface,
                                         shape: BoxShape.circle,
+                                        border: isTracked
+                                            ? Border.all(
+                                                color: Colors.tealAccent.shade400,
+                                                width: 3.0)
+                                            : null,
+                                        boxShadow: isTracked
+                                            ? [
+                                                BoxShadow(
+                                                  color: Colors.tealAccent.withOpacity(0.55),
+                                                  blurRadius: 10,
+                                                  spreadRadius: 2,
+                                                ),
+                                              ]
+                                            : null,
                                       ),
                                     ),
                                     Align(
@@ -282,7 +388,8 @@ class _AccessoryMapState extends State<AccessoryMap> {
                             : const Marker(
                                 point: LatLng(0, 0),
                                 child: SizedBox(),
-                              ),
+                              );
+                        },
                       ),
                   if (locationModel.here != null)
                     Marker(
@@ -312,6 +419,107 @@ class _AccessoryMapState extends State<AccessoryMap> {
                 ]),
               ],
             ),
+
+            // Floating Target Tracking Bar
+            if (trackedAccessory != null)
+              Positioned(
+                top: 14,
+                left: MediaQuery.of(context).size.width >= 720 ? 420 : 16,
+                right: MediaQuery.of(context).size.width >= 720 ? 90 : 16,
+                child: Center(
+                  child: Material(
+                    elevation: 5,
+                    borderRadius: BorderRadius.circular(30),
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF0F2B38)
+                                : Colors.teal.shade900)
+                            .withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Colors.tealAccent.shade400, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.teal.withOpacity(0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.radar, color: Colors.tealAccent, size: 18),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text.rich(
+                              TextSpan(
+                                text: 'Theo dõi: ',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                children: [
+                                  TextSpan(
+                                    text: trackedAccessory.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                  if (trackingDistStr != null) ...[
+                                    const TextSpan(text: ' • '),
+                                    TextSpan(
+                                      text: 'Cách $trackingDistStr',
+                                      style: TextStyle(
+                                        color: Colors.tealAccent.shade100,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Nút Bao quát Tag & Vị trí thiết bị
+                          InkWell(
+                            onTap: () {
+                              fitToTracking(trackedAccessory!, locationModel.here);
+                            },
+                            borderRadius: BorderRadius.circular(15),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: Tooltip(
+                                message: 'Bao quát Tag & Vị trí của bạn',
+                                child: Icon(Icons.crop_free, color: Colors.tealAccent.shade100, size: 17),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // Nút Dừng theo dõi
+                          InkWell(
+                            onTap: () {
+                              accessoryRegistry.clearTrackedAccessory();
+                            },
+                            borderRadius: BorderRadius.circular(15),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: Tooltip(
+                                message: 'Dừng theo dõi',
+                                child: Icon(Icons.close, color: Colors.white70, size: 17),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
 
             // Floating Controls: Clean Vertical Column with FAB buttons
             Positioned(

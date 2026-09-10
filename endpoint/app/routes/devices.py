@@ -268,6 +268,16 @@ async def unshare_device_from_user(
     return {"status": "ok", "message": "Đã hủy chia sẻ thiết bị thành công"}
 
 
+async def _enrich_device_response(db: AsyncSession, device: Device, current_user_id: int) -> DeviceResponse:
+    resp = DeviceResponse.model_validate(device)
+    shared_check = await db.execute(
+        select(Device.id).where(Device.hashed_adv_key == device.hashed_adv_key, Device.user_id != current_user_id).limit(1)
+    )
+    resp.is_shared = shared_check.scalar_one_or_none() is not None
+    resp.is_owner = (device.owner_user_id == current_user_id) if device.owner_user_id is not None else True
+    return resp
+
+
 @router.get("", response_model=List[DeviceResponse])
 async def list_devices(
     current_user: User = Depends(get_current_user),
@@ -300,7 +310,24 @@ async def list_devices(
     if has_updates:
         await db.commit()
 
-    return [DeviceResponse.model_validate(d) for d in devices]
+    keys = [d.hashed_adv_key for d in devices if d.hashed_adv_key]
+    shared_keys_set = set()
+    if keys:
+        shared_query = await db.execute(
+            select(Device.hashed_adv_key)
+            .where(Device.hashed_adv_key.in_(keys), Device.user_id != current_user.id)
+            .distinct()
+        )
+        shared_keys_set = set(shared_query.scalars().all())
+
+    response_items = []
+    for d in devices:
+        resp = DeviceResponse.model_validate(d)
+        resp.is_shared = d.hashed_adv_key in shared_keys_set
+        resp.is_owner = (d.owner_user_id == current_user.id) if d.owner_user_id is not None else True
+        response_items.append(resp)
+
+    return response_items
 
 
 @router.post("", response_model=DeviceResponse)
@@ -371,7 +398,7 @@ async def create_device(
         await restore_history(dev)
         await db.commit()
         await db.refresh(dev)
-        return DeviceResponse.model_validate(dev)
+        return await _enrich_device_response(db, dev, current_user.id)
 
     device = Device(
         user_id        = current_user.id,
@@ -387,7 +414,7 @@ async def create_device(
     await restore_history(device)
     await db.commit()
     await db.refresh(device)
-    return DeviceResponse.model_validate(device)
+    return await _enrich_device_response(db, device, current_user.id)
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -533,7 +560,7 @@ async def update_device_companion_settings(
 
     await db.commit()
     await db.refresh(device)
-    return device
+    return await _enrich_device_response(db, device, current_user.id)
 
 
 @router.patch("/{device_id}/notes", response_model=DeviceResponse)
@@ -560,5 +587,5 @@ async def update_device_notes(
 
     await db.commit()
     await db.refresh(device)
-    return device
+    return await _enrich_device_response(db, device, current_user.id)
 

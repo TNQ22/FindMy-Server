@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:macless_haystack/accessory/accessory_model.dart';
+import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
+import 'package:provider/provider.dart';
 
 class ItemShareAction extends StatelessWidget {
   final Accessory accessory;
@@ -118,6 +120,15 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
       if (usersRes.statusCode == 200 && sharedRes.statusCode == 200) {
         final List<dynamic> users = jsonDecode(usersRes.body);
         final List<dynamic> shared = jsonDecode(sharedRes.body);
+
+        final bool isShared = shared.isNotEmpty;
+        final bool isOwner = !shared.any((u) => u['is_owner'] == true);
+        widget.accessory.isShared = isShared;
+        widget.accessory.isOwner = isOwner;
+        try {
+          Provider.of<AccessoryRegistry>(context, listen: false)
+              .updateAccessoryShareStatus(widget.accessory.hashedPublicKey, isShared, isOwner: isOwner);
+        } catch (_) {}
 
         setState(() {
           _availableUsers = users;

@@ -131,13 +131,35 @@ class _AccessoryImportState extends State<AccessoryImport> {
                   });
                 },
               ),
-              ListTile(
-                title: ElevatedButton(
-                  child: const Text('Import'),
-                  onPressed: () => importKey(context),
-                ),
-              ),
+              const SizedBox(height: 16),
             ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.15),
+              ),
+            ),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: const Icon(Icons.file_download, size: 18),
+              label: const Text('Nhập Tag (Import)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              onPressed: () => importKey(context),
+            ),
           ),
         ),
       ),

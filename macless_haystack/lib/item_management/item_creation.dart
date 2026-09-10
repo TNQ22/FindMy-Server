@@ -107,9 +107,31 @@ class _AccessoryGenerationState extends State<AccessoryGeneration> {
                   });
                 },
               ),
-              ListTile(
-                title: OutlinedButton(
-                  child: const Text('Create only'),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.15),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Chỉ tạo (Create only)'),
                   onPressed: () async {
                     var created = await createAccessory(context);
                     if (created && context.mounted) {
@@ -118,9 +140,16 @@ class _AccessoryGenerationState extends State<AccessoryGeneration> {
                   },
                 ),
               ),
-              ListTile(
-                title: ElevatedButton(
-                  child: const Text('Create and Deploy'),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Tạo & Nạp (Deploy)', style: TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () async {
                     var created = await createAccessory(context);
                     if (created && context.mounted) {

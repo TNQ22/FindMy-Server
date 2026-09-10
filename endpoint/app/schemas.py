@@ -105,6 +105,7 @@ class DeviceResponse(BaseModel):
     battery_replaced_at: datetime | None = None
     owner_user_id: Optional[int] = None
     is_owner: bool = True
+    is_shared: bool = False
     is_master: bool = False
     master_device_id: Optional[int] = None
     separation_alert_enabled: bool = False

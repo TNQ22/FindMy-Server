@@ -5,6 +5,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:macless_haystack/accessory/accessory_list_item.dart';
 import 'package:macless_haystack/accessory/accessory_list_item_placeholder.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
@@ -89,25 +90,57 @@ class _AccessoryListState extends State<AccessoryList> {
                     distanceStr = '${km.round()} km';
                   }
                 }
-                // Get human readable location
+                final bool isTrackingThis =
+                    accessoryRegistry.trackedAccessoryKey == accessory.hashedPublicKey;
+
                 return Slidable(
                   key: ValueKey(accessory),
                   startActionPane: !accessory.isActive
                       ? null
                       : ActionPane(
-                          key: ValueKey(accessory),
+                          key: ValueKey('track_${accessory.hashedPublicKey}'),
                           motion: const ScrollMotion(),
                           dragDismissible: false,
                           children: [
-                              SlidableAction(
-                                onPressed: (context) async {
-                                  await widget.loadLocationUpdates(accessory);
-                                },
-                                foregroundColor: Theme.of(context).primaryColor,
-                                icon: Icons.refresh,
-                                label: 'Refresh',
-                              ),
-                            ]),
+                            SlidableAction(
+                              onPressed: (context) {
+                                if (isTrackingThis) {
+                                  accessoryRegistry.clearTrackedAccessory();
+                                  AppToast.showText(
+                                    context,
+                                    'Đã dừng theo dõi "${accessory.name}"',
+                                    icon: Icons.check_circle,
+                                    backgroundColor: Colors.grey.shade800,
+                                  );
+                                } else {
+                                  if (accessory.lastLocation == null) {
+                                    AppToast.showText(
+                                      context,
+                                      'Tag "${accessory.name}" chưa có vị trí để theo dõi!',
+                                      icon: Icons.warning_amber_rounded,
+                                      backgroundColor: Colors.amber.shade900,
+                                    );
+                                    return;
+                                  }
+                                  if (locationModel.here == null) {
+                                    locationModel.requestLocationUpdates();
+                                  }
+                                  accessoryRegistry.setTrackedAccessory(accessory);
+                                  AppToast.showText(
+                                    context,
+                                    'Bật chế độ theo dõi "${accessory.name}" cùng vị trí thiết bị',
+                                    icon: Icons.radar,
+                                    backgroundColor: Colors.teal.shade800,
+                                  );
+                                }
+                              },
+                              backgroundColor: isTrackingThis ? Colors.red.shade700 : Colors.teal.shade700,
+                              foregroundColor: Colors.white,
+                              icon: isTrackingThis ? Icons.close : Icons.radar,
+                              label: isTrackingThis ? 'Dừng theo dõi' : 'Theo dõi',
+                            ),
+                          ],
+                        ),
                   endActionPane: ActionPane(
                     motion: const DrawerMotion(),
                     children: [
@@ -163,6 +196,7 @@ class _AccessoryListState extends State<AccessoryList> {
                       accessory: accessory,
                       distanceText: distanceStr,
                       herePlace: locationModel.herePlace,
+                      isTracked: isTrackingThis,
                       onTap: () {
                         if (accessory.isActive) {
                           var lastLocation = accessory.lastLocation;

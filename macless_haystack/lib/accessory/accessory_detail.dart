@@ -79,6 +79,114 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
     }
   }
 
+  void _saveChanges() {
+    if (_formKey.currentState != null && _formKey.currentState!.validate()) {
+      var accessoryRegistry =
+          Provider.of<AccessoryRegistry>(context, listen: false);
+      final updatedNotes = _notesController.text.trim();
+      newAccessory.notes = updatedNotes.isEmpty ? null : updatedNotes;
+      accessoryRegistry.editAccessory(widget.accessory, newAccessory);
+      accessoryRegistry.updateDeviceNotes(
+        widget.accessory,
+        notes: newAccessory.notes,
+        batteryType: newAccessory.batteryType,
+        batteryReplacedAt: newAccessory.batteryReplacedAt,
+      );
+      if (newAccessory.serverId != null) {
+        accessoryRegistry.updateCompanionSettings(
+          newAccessory.serverId!,
+          isMaster: newAccessory.isMaster,
+          masterDeviceId: newAccessory.masterDeviceId,
+          separationAlertEnabled: newAccessory.separationAlertEnabled,
+          separationThresholdMeters: newAccessory.separationThresholdMeters,
+          ignoreSeparationInSafeZones: newAccessory.ignoreSeparationInSafeZones,
+        );
+      }
+      AppToast.showText(
+        context,
+        'Đã lưu thay đổi cho "${newAccessory.name}"',
+        icon: Icons.check_circle,
+        backgroundColor: Colors.teal.shade800,
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _resetHistory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Đặt lại lịch sử Tag'),
+        content: Text('Bạn có chắc muốn xóa toàn bộ lịch sử vị trí của "${widget.accessory.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade900,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xác nhận đặt lại'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      var accessoryRegistry =
+          Provider.of<AccessoryRegistry>(context, listen: false);
+      accessoryRegistry.deleteData(widget.accessory);
+      AppToast.showText(
+        context,
+        'Đã xóa toàn bộ lịch sử vị trí của thiết bị',
+        icon: Icons.delete_outline,
+        backgroundColor: Colors.amber.shade900,
+      );
+    }
+  }
+
+  Future<void> _deleteTag() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xóa Tag'),
+        content: Text('Bạn có chắc chắn muốn xóa Tag "${widget.accessory.name}" khỏi tài khoản không? Hành động này không thể hoàn tác.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xóa vĩnh viễn'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      var accessoryRegistry =
+          Provider.of<AccessoryRegistry>(context, listen: false);
+      accessoryRegistry.removeAccessory(widget.accessory);
+      AppToast.showText(
+        context,
+        'Đã xóa Tag "${widget.accessory.name}"',
+        icon: Icons.delete_forever,
+        backgroundColor: Colors.red.shade800,
+      );
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -96,69 +204,69 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
           maxWidth: 520,
           maxHeight: mediaQuery.size.height * 0.90,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Top Bar with Emerald Green / Teal Gradient
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 14 : 20,
-                vertical: isMobile ? 12 : 16,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.teal.shade800, Colors.teal.shade600],
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.settings, color: Colors.white, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Thiết Lập "${widget.accessory.name}"',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: isMobile ? 16 : 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Chỉnh sửa thông tin, biểu tượng và cấu hình Tag',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-
-            // Content
-            Flexible(
-              child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top Bar with Emerald Green / Teal Gradient
+              Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 14 : 22,
-                  vertical: 18,
+                  horizontal: isMobile ? 14 : 20,
+                  vertical: isMobile ? 12 : 16,
                 ),
-                child: Form(
-                  key: _formKey,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal.shade800, Colors.teal.shade600],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.settings, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Thiết Lập "${widget.accessory.name}"',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isMobile ? 16 : 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Chỉnh sửa thông tin, biểu tượng và cấu hình Tag',
+                            style: TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 14 : 22,
+                    vertical: 18,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -337,62 +445,9 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
 
                       const SizedBox(height: 20),
                       const Divider(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
 
-                      // Action Buttons
-                      SizedBox(
-                        width: double.infinity,
-                        height: 44,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: const Text('Lưu Thay Đổi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          onPressed: _formKey.currentState == null ||
-                                  !_formKey.currentState!.validate()
-                              ? null
-                              : () {
-                                  if (_formKey.currentState != null &&
-                                      _formKey.currentState!.validate()) {
-                                    var accessoryRegistry =
-                                        Provider.of<AccessoryRegistry>(context,
-                                            listen: false);
-                                    final updatedNotes = _notesController.text.trim();
-                                    newAccessory.notes = updatedNotes.isEmpty ? null : updatedNotes;
-                                    accessoryRegistry.editAccessory(
-                                        widget.accessory, newAccessory);
-                                    accessoryRegistry.updateDeviceNotes(
-                                        widget.accessory,
-                                        notes: newAccessory.notes,
-                                        batteryType: newAccessory.batteryType,
-                                        batteryReplacedAt: newAccessory.batteryReplacedAt);
-                                    if (newAccessory.serverId != null) {
-                                      accessoryRegistry.updateCompanionSettings(
-                                        newAccessory.serverId!,
-                                        isMaster: newAccessory.isMaster,
-                                        masterDeviceId: newAccessory.masterDeviceId,
-                                        separationAlertEnabled: newAccessory.separationAlertEnabled,
-                                        separationThresholdMeters: newAccessory.separationThresholdMeters,
-                                        ignoreSeparationInSafeZones: newAccessory.ignoreSeparationInSafeZones,
-                                      );
-                                    }
-                                    AppToast.showText(
-                                      context,
-                                      'Đã lưu thay đổi cho "${newAccessory.name}"',
-                                      icon: Icons.check_circle,
-                                      backgroundColor: Colors.teal.shade800,
-                                    );
-                                    Navigator.pop(context);
-                                  }
-                                },
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
+                      // Danger actions inside scroll view (so they aren't hit accidentally)
                       Row(
                         children: [
                           Expanded(
@@ -404,42 +459,7 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                               ),
                               icon: const Icon(Icons.history_toggle_off, size: 16),
                               label: const Text('Đặt lại Lịch sử', style: TextStyle(fontSize: 12)),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                    title: const Text('Đặt lại lịch sử Tag'),
-                                    content: Text('Bạn có chắc muốn xóa toàn bộ lịch sử vị trí của "${widget.accessory.name}"?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, false),
-                                        child: const Text('Hủy'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.amber.shade900,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        child: const Text('Xác nhận đặt lại'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-
-                                if (confirm == true && context.mounted) {
-                                  var accessoryRegistry =
-                                      Provider.of<AccessoryRegistry>(context, listen: false);
-                                  accessoryRegistry.deleteData(widget.accessory);
-                                  AppToast.showText(
-                                    context,
-                                    'Đã xóa toàn bộ lịch sử vị trí của thiết bị',
-                                    icon: Icons.delete_outline,
-                                    backgroundColor: Colors.amber.shade900,
-                                  );
-                                }
-                              },
+                              onPressed: _resetHistory,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -452,53 +472,83 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                               ),
                               icon: const Icon(Icons.delete_outline, size: 16),
                               label: const Text('Xóa Tag', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                    title: const Text('Xóa Tag'),
-                                    content: Text('Bạn có chắc chắn muốn xóa Tag "${widget.accessory.name}" khỏi tài khoản không? Hành động này không thể hoàn tác.'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, false),
-                                        child: const Text('Hủy'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red.shade700,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        child: const Text('Xóa vĩnh viễn'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-
-                                if (confirm == true && context.mounted) {
-                                  var accessoryRegistry =
-                                      Provider.of<AccessoryRegistry>(context, listen: false);
-                                  accessoryRegistry.removeAccessory(widget.accessory);
-                                  AppToast.showText(
-                                    context,
-                                    'Đã xóa Tag "${widget.accessory.name}"',
-                                    icon: Icons.delete_forever,
-                                    backgroundColor: Colors.red.shade800,
-                                  );
-                                  Navigator.pop(context);
-                                }
-                              },
+                              onPressed: _deleteTag,
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Fixed Bottom Action Bar (always visible on mobile & desktop)
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 14 : 20,
+                  vertical: isMobile ? 10 : 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context).dividerColor.withOpacity(0.12),
+                      width: 1,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      offset: const Offset(0, -2),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: isMobile ? 11 : 13),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            side: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text(
+                            'Hủy',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 3,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal.shade700,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: isMobile ? 11 : 13),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 2,
+                          ),
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: const Text(
+                            'Lưu Thay Đổi',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          onPressed: _saveChanges,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -725,7 +775,7 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                     controller: typeController,
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'Ví dụ: CR2032, CR2025, AAA...',
+                      hintText: 'Ví dụ: CR2032, CR1632, LR44...',
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
@@ -733,7 +783,8 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
-                    children: ['CR2032', 'CR2025', 'CR2016', 'AAA'].map((t) {
+                    runSpacing: 4,
+                    children: ['LR44', 'CR1620', 'CR1632', 'CR2016', 'CR2032', 'CR2430'].map((t) {
                       return ActionChip(
                         label: Text(t, style: const TextStyle(fontSize: 11)),
                         padding: EdgeInsets.zero,

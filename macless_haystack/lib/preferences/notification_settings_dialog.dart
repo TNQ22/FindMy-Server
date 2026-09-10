@@ -325,40 +325,85 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
             const Divider(height: 1),
 
             // Bottom Actions
-            Padding(
+            Container(
               padding: EdgeInsets.symmetric(
                 horizontal: isMobile ? 14 : 20,
-                vertical: isMobile ? 10 : 14,
+                vertical: isMobile ? 10 : 12,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Hủy'),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).dividerColor.withOpacity(0.12),
+                    width: 1,
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 14 : 20,
-                        vertical: isMobile ? 10 : 12,
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    if (isMobile)
+                      Expanded(
+                        flex: 2,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            side: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Hủy', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        ),
+                      )
+                    else ...[
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Hủy'),
                       ),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ],
+                    const SizedBox(width: 10),
+                    isMobile
+                        ? Expanded(
+                            flex: 3,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 11),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: _saving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.save, size: 18),
+                              label: Text(_saving ? 'Đang lưu...' : 'Lưu Cấu Hình', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              onPressed: _saving ? null : _saveSettings,
+                            ),
                           )
-                        : const Icon(Icons.save, size: 18),
-                    label: Text(_saving ? 'Đang lưu...' : 'Lưu Cấu Hình'),
-                    onPressed: _saving ? null : _saveSettings,
-                  ),
-                ],
+                        : ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: _saving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.save, size: 18),
+                            label: Text(_saving ? 'Đang lưu...' : 'Lưu Cấu Hình'),
+                            onPressed: _saving ? null : _saveSettings,
+                          ),
+                  ],
+                ),
               ),
             ),
           ],
