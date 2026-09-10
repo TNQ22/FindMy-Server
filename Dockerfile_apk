@@ -11,10 +11,12 @@ RUN if [ -f /app_android/android/app/src/main/AndroidManifest.xml ]; then \
       cp /app_android/android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml && \
       rm -rf /app_android/android && \
       flutter create --platforms=android --org de.dchristl . && \
-      cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml; \
+      cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml && \
+      echo "subprojects { afterEvaluate { project.extensions.findByType<com.android.build.gradle.BaseExtension>()?.apply { compileSdkVersion(35) } } }" >> /app_android/android/build.gradle.kts; \
     else \
       rm -rf /app_android/android && \
-      flutter create --platforms=android --org de.dchristl .; \
+      flutter create --platforms=android --org de.dchristl . && \
+      echo "subprojects { afterEvaluate { project.extensions.findByType<com.android.build.gradle.BaseExtension>()?.apply { compileSdkVersion(35) } } }" >> /app_android/android/build.gradle.kts; \
     fi
 
 # Accept Android SDK licenses

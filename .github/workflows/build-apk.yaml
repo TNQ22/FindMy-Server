@@ -48,6 +48,8 @@ jobs:
           rm -rf android
           flutter create --platforms=android --org de.dchristl .
           cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          echo "" >> android/build.gradle.kts
+          echo "subprojects { afterEvaluate { project.extensions.findByType<com.android.build.gradle.BaseExtension>()?.apply { compileSdkVersion(35) } } }" >> android/build.gradle.kts
 
       - name: Install Dependencies
         working-directory: ./macless_haystack
