@@ -149,3 +149,5 @@ dev.env
 
 # antigravity rules
 .agents/rules
+
+build_output/
