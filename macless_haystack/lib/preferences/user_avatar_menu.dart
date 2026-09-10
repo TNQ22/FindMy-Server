@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:universal_html/html.dart' as html;
@@ -141,6 +142,126 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showConnectAndroidDialog(BuildContext context) {
+    final token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    final serverUrl = _baseUrl;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.phone_android, color: Colors.teal),
+            SizedBox(width: 8),
+            Text('Kết nối Ứng dụng Android', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Để đăng nhập trên app Android FindMy Server, bạn có thể thực hiện theo 2 bước:',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '1. Địa chỉ Máy chủ (Server URL):',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        serverUrl,
+                        style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18),
+                      tooltip: 'Sao chép Server URL',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: serverUrl));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Đã sao chép Địa chỉ máy chủ!')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '2. Token Đăng nhập (JWT Key):',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        token.isEmpty ? '(Chưa có token)' : token,
+                        maxLines: 2,
+                        style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18),
+                      tooltip: 'Sao chép Token',
+                      onPressed: token.isEmpty
+                          ? null
+                          : () {
+                              Clipboard.setData(ClipboardData(text: token));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Đã sao chép Token đăng nhập!')),
+                              );
+                            },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.teal.withOpacity(0.4)),
+                ),
+                child: const Text(
+                  '💡 Mở app Android -> Bấm biểu tượng ⚙️ để dán Server URL -> Bấm "Đăng nhập bằng Token" và dán mã Token này vào là kết nối thành công ngay lập tức!',
+                  style: TextStyle(fontSize: 12, color: Colors.tealAccent),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showProfilePopup(BuildContext context) {
@@ -318,6 +439,28 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                               context: context,
                               builder: (c) => const ZoneManagementDialog(),
                             );
+                          },
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withOpacity(0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.phone_android, color: Colors.purple, size: 20),
+                          ),
+                          title: const Text('Kết Nối App Android', style: TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: const Text('Lấy mã Token hoặc liên kết kết nối điện thoại', style: TextStyle(fontSize: 11)),
+                          trailing: const Icon(Icons.chevron_right, size: 18),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showConnectAndroidDialog(context);
                           },
                         ),
 

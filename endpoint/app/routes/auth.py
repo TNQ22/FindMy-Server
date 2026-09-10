@@ -1,7 +1,10 @@
+import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas import GoogleAuthRequest, TokenResponse, UserResponse
+from app.config import settings
 from app.schemas import GoogleAuthRequest, TokenResponse, UserResponse, UserSettingsUpdate
 from app.services.auth_service import (
     verify_google_token,
@@ -12,6 +15,164 @@ from app.services.auth_service import (
 from app.models import User
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
+
+# In-memory temporary mobile auth sessions: session_id -> {token, user, created_at}
+_auth_sessions: dict[str, dict] = {}
+
+@router.post("/session/create")
+async def create_auth_session():
+    now = datetime.now(timezone.utc)
+    expired = [k for k, v in _auth_sessions.items() if (now - v["created_at"]).total_seconds() > 600]
+    for k in expired:
+        _auth_sessions.pop(k, None)
+    sid = str(uuid.uuid4())
+    _auth_sessions[sid] = {"token": None, "user": None, "created_at": now}
+    return {"session_id": sid}
+
+@router.post("/session/{sid}/complete")
+async def complete_auth_session(sid: str, body: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+    if sid not in _auth_sessions:
+        raise HTTPException(status_code=404, detail="Phiên đăng nhập không tồn tại hoặc đã hết hạn")
+    id_info = await verify_google_token(body.id_token)
+    user = await get_or_create_user_from_google(id_info, db)
+    token = create_access_token({"sub": str(user.id), "email": user.email})
+    _auth_sessions[sid]["token"] = token
+    _auth_sessions[sid]["user"] = UserResponse.model_validate(user).model_dump()
+    return {"status": "ok"}
+
+@router.get("/session/{sid}/poll")
+async def poll_auth_session(sid: str):
+    if sid not in _auth_sessions:
+        raise HTTPException(status_code=404, detail="Phiên đăng nhập không tồn tại hoặc đã hết hạn")
+    data = _auth_sessions[sid]
+    if data["token"]:
+        token = data["token"]
+        user = data["user"]
+        _auth_sessions.pop(sid, None)
+        return {"authenticated": True, "access_token": token, "user": user}
+    return {"authenticated": False}
+
+@router.get("/mobile-login", response_class=HTMLResponse)
+async def mobile_login_page(session: str):
+    client_id = settings.GOOGLE_CLIENT_ID or ""
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FindMy Server - Đăng nhập Google</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }}
+        .card {{
+            background: #1e293b;
+            padding: 36px 24px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid rgba(20, 184, 166, 0.3);
+            box-shadow: 0 10px 35px rgba(0,0,0,0.6);
+        }}
+        .icon {{
+            width: 60px;
+            height: 60px;
+            background: rgba(20, 184, 166, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }}
+        h2 {{ margin: 0 0 8px; color: #fff; font-size: 22px; }}
+        p {{ color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }}
+        .btn-box {{ display: flex; justify-content: center; margin-top: 10px; }}
+        #success-msg {{ display: none; margin-top: 20px; }}
+        .success-box {{
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid #22c55e;
+            border-radius: 12px;
+            padding: 20px;
+        }}
+        .success-box h3 {{ color: #4ade80; margin: 8px 0 4px; font-size: 18px; }}
+        .success-box p {{ color: #cbd5e1; margin: 0; font-size: 13px; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">
+            <svg style="width:32px;height:32px;fill:#14b8a6;" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+            </svg>
+        </div>
+        <h2>FindMy Server</h2>
+        <p>Chọn tài khoản Google để xác thực và kết nối vào ứng dụng trên điện thoại.</p>
+        
+        <div id="btn-box" class="btn-box">
+            <div id="g_id_onload"
+                 data-client_id="{client_id}"
+                 data-context="signin"
+                 data-ux_mode="popup"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-theme="filled_blue"
+                 data-text="signin_with"
+                 data-size="large"
+                 data-logo_alignment="left">
+            </div>
+        </div>
+
+        <div id="success-msg">
+            <div class="success-box">
+                <svg style="width:40px;height:40px;fill:#22c55e;display:block;margin:auto;" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <h3>Xác thực thành công!</h3>
+                <p>Ứng dụng trên điện thoại đang tự động kết nối.<br>Bạn có thể chuyển về app FindMy bây giờ.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function handleCredentialResponse(response) {{
+            if (!response.credential) return;
+            document.getElementById('btn-box').style.display = 'none';
+            fetch('/api/auth/session/{session}/complete', {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{ id_token: response.credential }})
+            }}).then(res => {{
+                if (res.ok) {{
+                    document.getElementById('success-msg').style.display = 'block';
+                }} else {{
+                    alert('Xác thực thất bại, vui lòng thử lại.');
+                    document.getElementById('btn-box').style.display = 'flex';
+                }}
+            }}).catch(err => {{
+                alert('Lỗi kết nối máy chủ: ' + err);
+                document.getElementById('btn-box').style.display = 'flex';
+            }});
+        }}
+    </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html_content)
 
 @router.post("/google", response_model=TokenResponse)
 async def login_google(body: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):

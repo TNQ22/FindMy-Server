@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
@@ -20,11 +24,20 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   bool _loading = false;
   String? _errorMessage;
+  String? _statusMessage;
+  Timer? _pollTimer;
+  String? _activeSessionId;
 
   @override
   void initState() {
     super.initState();
     _checkRedirectToken();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   void _checkRedirectToken() {
@@ -50,9 +63,14 @@ class _LoginPageState extends State<LoginPage> {
     return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
   }
 
+  bool get _isConfiguredServer {
+    String configured = Settings.getValue<String>(endpointUrl, defaultValue: '')!.trim();
+    return configured.isNotEmpty && !configured.contains('localhost');
+  }
+
   Future<String?> _getOrFetchClientId() async {
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/api/config'));
+      final res = await http.get(Uri.parse('$_baseUrl/api/config')).timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['google_client_id'] != null && data['google_client_id'].toString().trim().isNotEmpty) {
@@ -66,32 +84,134 @@ class _LoginPageState extends State<LoginPage> {
     String stored = Settings.getValue<String>(googleClientIdKey, defaultValue: '')!;
     if (stored.trim().isNotEmpty) return stored.trim();
 
-    return '17360711987-c4eqe3jk31on92okbffbsbrffc1v7u66.apps.googleusercontent.com';
+    return null;
   }
 
   void _triggerGoogleLogin() async {
     setState(() {
-      _loading = true;
       _errorMessage = null;
     });
 
-    final clientId = await _getOrFetchClientId();
-    if (clientId == null || clientId.isEmpty) {
-      setState(() {
-        _loading = false;
-        _errorMessage = 'Chưa thiết lập GOOGLE_CLIENT_ID trên hệ thống!';
-      });
+    // If running on mobile (or no window origin) and server URL is localhost/empty, guide user first
+    if (!kIsWeb && !_isConfiguredServer) {
+      _showServerConfigDialog(promptReason: 'Vui lòng thiết lập Địa chỉ máy chủ (Server URL) trước khi đăng nhập Google trên điện thoại.');
       return;
     }
 
+    setState(() {
+      _loading = true;
+      _statusMessage = 'Đang kiểm tra kết nối máy chủ...';
+    });
+
+    if (kIsWeb) {
+      final clientId = await _getOrFetchClientId();
+      if (clientId == null || clientId.isEmpty) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Chưa thiết lập GOOGLE_CLIENT_ID trên hệ thống!';
+        });
+        return;
+      }
+
+      try {
+        WebInterop.triggerGooglePopupLogin(clientId, (token) {
+          _verifyAndLoginToken(token);
+        });
+      } catch (e) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Không thể khởi chạy Google Login: $e';
+        });
+      }
+    } else {
+      // Mobile flow: Web session handshake
+      _startMobileGoogleLogin();
+    }
+  }
+
+  Future<void> _startMobileGoogleLogin() async {
+    _pollTimer?.cancel();
+    setState(() {
+      _statusMessage = 'Đang tạo phiên đăng nhập Google...';
+    });
+
     try {
-      WebInterop.triggerGooglePopupLogin(clientId, (token) {
-        _verifyAndLoginToken(token);
+      final createRes = await http.post(
+        Uri.parse('$_baseUrl/api/auth/session/create'),
+      ).timeout(const Duration(seconds: 5));
+
+      if (createRes.statusCode != 200) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Máy chủ chưa hỗ trợ tự động mở trình duyệt (Mã lỗi ${createRes.statusCode}). Vui lòng dùng tính năng "Đăng nhập bằng Token" bên dưới hoặc cập nhật máy chủ.';
+        });
+        return;
+      }
+
+      final data = jsonDecode(createRes.body);
+      final sid = data['session_id'];
+      _activeSessionId = sid;
+
+      final loginUrl = '$_baseUrl/api/auth/mobile-login?session=$sid';
+      final uri = Uri.parse(loginUrl);
+
+      setState(() {
+        _statusMessage = 'Đang mở trình duyệt để đăng nhập Google...\nSau khi đăng nhập xong trên web, app sẽ tự động kết nối!';
+      });
+
+      bool launched = false;
+      if (await canLaunchUrl(uri)) {
+        launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+
+      if (!launched) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Không thể mở trình duyệt điện thoại. Hãy thử sao chép liên kết này mở trên Chrome:\n$loginUrl';
+        });
+        return;
+      }
+
+      // Start polling for token
+      int elapsedSeconds = 0;
+      _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+        elapsedSeconds += 2;
+        if (elapsedSeconds > 180) {
+          timer.cancel();
+          if (mounted) {
+            setState(() {
+              _loading = false;
+              _errorMessage = 'Hết thời gian chờ đăng nhập (3 phút). Vui lòng thử lại.';
+            });
+          }
+          return;
+        }
+
+        try {
+          final pollRes = await http.get(
+            Uri.parse('$_baseUrl/api/auth/session/$sid/poll'),
+          ).timeout(const Duration(seconds: 3));
+
+          if (pollRes.statusCode == 200) {
+            final pollData = jsonDecode(pollRes.body);
+            if (pollData['authenticated'] == true && pollData['access_token'] != null) {
+              timer.cancel();
+              final jwtToken = pollData['access_token'];
+              if (mounted) {
+                setState(() {
+                  _statusMessage = 'Đăng nhập Google thành công! Đang vào hệ thống...';
+                });
+                await Provider.of<AuthState>(context, listen: false).onLoginSuccess(jwtToken);
+                widget.onLoginSuccess();
+              }
+            }
+          }
+        } catch (_) {}
       });
     } catch (e) {
       setState(() {
         _loading = false;
-        _errorMessage = 'Không thể khởi chạy Google Login: $e';
+        _errorMessage = 'Lỗi kết nối tới máy chủ: $e\nVui lòng kiểm tra lại Địa chỉ máy chủ (Server URL).';
       });
     }
   }
@@ -108,7 +228,6 @@ class _LoginPageState extends State<LoginPage> {
         final data = jsonDecode(res.body);
         final jwtToken = data['access_token'];
 
-        // Use AuthState as single source of truth
         if (mounted) {
           await Provider.of<AuthState>(context, listen: false).onLoginSuccess(jwtToken);
           widget.onLoginSuccess();
@@ -132,6 +251,271 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _cancelMobileAuth() {
+    _pollTimer?.cancel();
+    setState(() {
+      _loading = false;
+      _statusMessage = null;
+    });
+  }
+
+  void _showServerConfigDialog({String? promptReason}) {
+    final currentUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
+    final controller = TextEditingController(text: currentUrl.isEmpty ? 'http://192.168.1.' : currentUrl);
+    String? pingStatus;
+    bool pinging = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.dns, color: Colors.teal),
+                SizedBox(width: 8),
+                Text('Cấu hình Địa chỉ Máy chủ', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (promptReason != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                      ),
+                      child: Text(
+                        promptReason,
+                        style: const TextStyle(color: Colors.orange, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  const Text(
+                    'Nhập địa chỉ IP hoặc tên miền của FindMy Server (kèm cổng, ví dụ: http://192.168.1.15:6176 hoặc https://findmy.domain.com):',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      labelText: 'Server URL',
+                      hintText: 'http://192.168.1.xxx:6176',
+                      prefixIcon: Icon(Icons.link),
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal.shade700),
+                        onPressed: pinging
+                            ? null
+                            : () async {
+                                setDialogState(() {
+                                  pinging = true;
+                                  pingStatus = 'Đang kiểm tra kết nối...';
+                                });
+                                String target = controller.text.trim();
+                                if (target.endsWith('/')) {
+                                  target = target.substring(0, target.length - 1);
+                                }
+                                try {
+                                  final res = await http.get(Uri.parse('$target/api/config')).timeout(const Duration(seconds: 4));
+                                  if (res.statusCode == 200) {
+                                    setDialogState(() {
+                                      pinging = false;
+                                      pingStatus = '✅ Kết nối máy chủ thành công!';
+                                    });
+                                  } else {
+                                    setDialogState(() {
+                                      pinging = false;
+                                      pingStatus = '⚠️ Máy chủ trả về mã: ${res.statusCode}';
+                                    });
+                                  }
+                                } catch (e) {
+                                  setDialogState(() {
+                                    pinging = false;
+                                    pingStatus = '❌ Không thể kết nối: $e';
+                                  });
+                                }
+                              },
+                        icon: pinging
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.network_check, color: Colors.white, size: 16),
+                        label: const Text('Kiểm tra', style: TextStyle(color: Colors.white, fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                  if (pingStatus != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      pingStatus!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: pingStatus!.startsWith('✅') ? Colors.green : Colors.redAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                onPressed: () async {
+                  String val = controller.text.trim();
+                  if (val.endsWith('/')) {
+                    val = val.substring(0, val.length - 1);
+                  }
+                  await Settings.setValue<String>(endpointUrl, val);
+                  if (context.mounted) {
+                    Navigator.pop(dialogCtx);
+                    setState(() {
+                      _errorMessage = null;
+                    });
+                  }
+                },
+                child: const Text('Lưu máy chủ', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showTokenLoginDialog() {
+    final tokenController = TextEditingController();
+    bool validating = false;
+    String? tokenError;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.key, color: Colors.teal),
+                SizedBox(width: 8),
+                Text('Đăng nhập bằng Token', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Nếu bạn đã đăng nhập trên máy tính / Web, vào Menu góc phải -> Sao chép Token và dán vào đây:',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: tokenController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: 'JWT Token hoặc Bearer Key',
+                      hintText: 'eyJhbGciOi...',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.paste),
+                        tooltip: 'Dán từ bộ nhớ tạm',
+                        onPressed: () async {
+                          final data = await Clipboard.getData('text/plain');
+                          if (data?.text != null) {
+                            setDialogState(() {
+                              tokenController.text = data!.text!.trim();
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  if (tokenError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      tokenError!,
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                onPressed: validating
+                    ? null
+                    : () async {
+                        String raw = tokenController.text.trim();
+                        if (raw.isEmpty) {
+                          setDialogState(() => tokenError = 'Vui lòng nhập Token.');
+                          return;
+                        }
+                        setDialogState(() {
+                          validating = true;
+                          tokenError = null;
+                        });
+
+                        String bearer = raw.startsWith('Bearer ') ? raw : 'Bearer $raw';
+                        try {
+                          final res = await http.get(
+                            Uri.parse('$_baseUrl/api/auth/me'),
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': bearer,
+                            },
+                          ).timeout(const Duration(seconds: 5));
+
+                          if (res.statusCode == 200) {
+                            if (context.mounted) {
+                              Navigator.pop(dialogCtx);
+                              await Provider.of<AuthState>(context, listen: false).onLoginSuccess(bearer);
+                              widget.onLoginSuccess();
+                            }
+                          } else {
+                            setDialogState(() {
+                              validating = false;
+                              tokenError = 'Token không hợp lệ (Mã phản hồi ${res.statusCode}).';
+                            });
+                          }
+                        } catch (e) {
+                          setDialogState(() {
+                            validating = false;
+                            tokenError = 'Lỗi kết nối máy chủ: $e';
+                          });
+                        }
+                      },
+                child: validating
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Xác nhận đăng nhập', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -141,7 +525,7 @@ class _LoginPageState extends State<LoginPage> {
           padding: const EdgeInsets.all(24.0),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 420),
-            padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 40.0),
+            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 36.0),
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(20),
@@ -171,10 +555,10 @@ class _LoginPageState extends State<LoginPage> {
                   child: const Icon(
                     Icons.location_on_rounded,
                     color: Colors.teal,
-                    size: 56,
+                    size: 52,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 const Text(
                   'FindMy Server',
                   style: TextStyle(
@@ -184,16 +568,68 @@ class _LoginPageState extends State<LoginPage> {
                     letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Hệ thống định vị thiết bị Apple FindMy 24/7',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.grey.shade400,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // Server URL indicator bar
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _isConfiguredServer ? Colors.teal.withOpacity(0.5) : Colors.orange.withOpacity(0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isConfiguredServer ? Icons.cloud_done : Icons.warning_amber_rounded,
+                        color: _isConfiguredServer ? Colors.tealAccent : Colors.orange,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _isConfiguredServer ? 'Máy chủ kết nối:' : 'Chưa cấu hình máy chủ:',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _isConfiguredServer ? Colors.grey.shade400 : Colors.orange.shade300,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              _baseUrl,
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.settings, size: 18, color: Colors.tealAccent),
+                        tooltip: 'Đổi máy chủ',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _showServerConfigDialog(),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
                 // Show session-expired banner if redirected from a 401
                 if (widget.sessionExpired) ...[
                   Container(
@@ -218,6 +654,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 16),
                 ],
+
                 if (_errorMessage != null) ...[
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -234,12 +671,32 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
                 ],
+
                 if (_loading) ...[
-                  const CircularProgressIndicator(color: Colors.teal),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Đang xác thực tài khoản...',
-                    style: TextStyle(color: Colors.grey.shade300, fontSize: 13),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.teal.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        const CircularProgressIndicator(color: Colors.teal),
+                        const SizedBox(height: 14),
+                        Text(
+                          _statusMessage ?? 'Đang xác thực tài khoản...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade200, fontSize: 13),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: _cancelMobileAuth,
+                          icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                          label: const Text('Hủy', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        ),
+                      ],
+                    ),
                   ),
                 ] else ...[
                   SizedBox(
@@ -249,7 +706,7 @@ class _LoginPageState extends State<LoginPage> {
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black87,
                         elevation: 4,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -265,8 +722,24 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: _triggerGoogleLogin,
                     ),
                   ),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.tealAccent,
+                      side: BorderSide(color: Colors.teal.shade600),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                    label: const Text(
+                      'Đăng nhập bằng Token',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    onPressed: _showTokenLoginDialog,
+                  ),
                 ],
-                const SizedBox(height: 28),
+
+                const SizedBox(height: 24),
                 Text(
                   'Ứng dụng yêu cầu đăng nhập tài khoản Google để bảo mật dữ liệu và phân quyền thiết bị.',
                   textAlign: TextAlign.center,
