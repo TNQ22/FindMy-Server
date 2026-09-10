@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:js' as js;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -7,7 +6,7 @@ import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/preferences/google_auth_dialog.dart';
-import 'package:universal_html/html.dart' as html;
+import '../util/web_interop.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -30,18 +29,17 @@ class _LoginPageState extends State<LoginPage> {
 
   void _checkRedirectToken() {
     try {
-      final token = js.context['googleOAuthTokenFromRedirect'];
-      if (token != null && token.toString().isNotEmpty) {
-        js.context['googleOAuthTokenFromRedirect'] = null;
-        _verifyAndLoginToken(token.toString());
+      final token = WebInterop.getRedirectToken();
+      if (token != null && token.isNotEmpty) {
+        _verifyAndLoginToken(token);
       }
     } catch (_) {}
   }
 
   String get _baseUrl {
     try {
-      String origin = html.window.location.origin;
-      if (origin.startsWith('http')) {
+      String? origin = WebInterop.windowOrigin;
+      if (origin != null && origin.startsWith('http')) {
         return origin;
       }
     } catch (_) {}
@@ -87,18 +85,9 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      js.context.callMethod('triggerGooglePopupLogin', [
-        clientId,
-        js.allowInterop((token) {
-          if (token != null) {
-            _verifyAndLoginToken(token.toString());
-          } else {
-            setState(() {
-              _loading = false;
-            });
-          }
-        })
-      ]);
+      WebInterop.triggerGooglePopupLogin(clientId, (token) {
+        _verifyAndLoginToken(token);
+      });
     } catch (e) {
       setState(() {
         _loading = false;

@@ -34,8 +34,8 @@ class _ICloudManagementDialogState extends State<ICloudManagementDialog> {
 
   String get _baseUrl {
     try {
-      String origin = html.window.location.origin;
-      if (origin.startsWith('http')) {
+      String? origin = html.window.location.origin;
+      if (origin != null && origin.startsWith('http')) {
         return origin;
       }
     } catch (_) {}

@@ -122,8 +122,8 @@ class _AppLayoutState extends State<AppLayout> {
 
   Future<void> _initAppConfig() async {
     try {
-      String origin = html.window.location.origin;
-      String baseUrl = origin.startsWith('http') ? origin : 'http://localhost:6176';
+      String? origin = html.window.location.origin;
+      String baseUrl = (origin != null && origin.startsWith('http')) ? origin : 'http://localhost:6176';
       final res = await http.get(Uri.parse('$baseUrl/api/config'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);

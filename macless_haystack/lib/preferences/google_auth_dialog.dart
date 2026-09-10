@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js' as js;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -8,7 +7,7 @@ import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
-import 'package:universal_html/html.dart' as html;
+import '../util/web_interop.dart';
 
 const String googleClientIdKey = 'GOOGLE_CLIENT_ID';
 
@@ -34,18 +33,17 @@ class _GoogleAuthDialogState extends State<GoogleAuthDialog> {
 
   void _checkRedirectToken() {
     try {
-      final token = js.context['googleOAuthTokenFromRedirect'];
-      if (token != null && token.toString().isNotEmpty) {
-        js.context['googleOAuthTokenFromRedirect'] = null;
-        _verifyAndLoginToken(token.toString());
+      final token = WebInterop.getRedirectToken();
+      if (token != null && token.isNotEmpty) {
+        _verifyAndLoginToken(token);
       }
     } catch (_) {}
   }
 
   String get _baseUrl {
     try {
-      String origin = html.window.location.origin;
-      if (origin.startsWith('http')) {
+      String? origin = WebInterop.windowOrigin;
+      if (origin != null && origin.startsWith('http')) {
         return origin;
       }
     } catch (_) {}
@@ -143,14 +141,9 @@ class _GoogleAuthDialogState extends State<GoogleAuthDialog> {
     });
 
     try {
-      js.context.callMethod('triggerGooglePopupLogin', [
-        clientId,
-        js.allowInterop((token) {
-          if (token != null) {
-            _verifyAndLoginToken(token.toString());
-          }
-        })
-      ]);
+      WebInterop.triggerGooglePopupLogin(clientId, (token) {
+        _verifyAndLoginToken(token);
+      });
     } catch (e) {
       setState(() {
         _statusMessage = "Không thể mở cửa sổ Google: $e";
@@ -205,7 +198,7 @@ class _GoogleAuthDialogState extends State<GoogleAuthDialog> {
 
   Future<void> _logout() async {
     try {
-      js.context.callMethod('googleSignOut');
+      WebInterop.googleSignOut();
     } catch (_) {}
     if (mounted && Navigator.of(context).canPop()) {
       Navigator.of(context).pop();

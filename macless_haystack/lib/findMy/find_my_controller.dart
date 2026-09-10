@@ -39,8 +39,8 @@ class FindMyController {
     String resolvedUrl = url ?? '';
     try {
       if (kIsWeb) {
-        String origin = html.window.location.origin;
-        if (origin.startsWith('http')) {
+        String? origin = html.window.location.origin;
+        if (origin != null && origin.startsWith('http')) {
           resolvedUrl = '$origin/api/reports/fetch';
         }
       }

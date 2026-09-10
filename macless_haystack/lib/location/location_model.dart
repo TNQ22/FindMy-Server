@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:js' as js;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,7 @@ import 'package:geocoding/geocoding.dart' as geocode;
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:logger/logger.dart';
+import '../util/web_interop.dart';
 
 class LocationModel extends ChangeNotifier {
   LatLng? here;
@@ -19,16 +19,9 @@ class LocationModel extends ChangeNotifier {
     printer: PrettyPrinter(methodCount: 0),
   );
 
-  /// Requests access to the device location from the user.
+  /// Requests the user for location access permission.
   Future<bool> requestLocationAccess() async {
-    if (kIsWeb) {
-      return true;
-    }
-
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-
-    serviceEnabled = await location.serviceEnabled();
+    bool serviceEnabled = await location.serviceEnabled();
     if (!serviceEnabled) {
       serviceEnabled = await location.requestService();
       if (!serviceEnabled) {
@@ -36,7 +29,7 @@ class LocationModel extends ChangeNotifier {
       }
     }
 
-    permissionGranted = await location.requestPermission();
+    PermissionStatus permissionGranted = await location.hasPermission();
     if (permissionGranted == PermissionStatus.denied) {
       permissionGranted = await location.requestPermission();
       if (permissionGranted != PermissionStatus.granted) {
@@ -50,16 +43,12 @@ class LocationModel extends ChangeNotifier {
   Future<void> requestLocationUpdates() async {
     if (kIsWeb) {
       try {
-        js.context.callMethod('getWebDeviceLocation', [
-          js.allowInterop((lat, lng) {
-            if (lat != null && lng != null) {
-              _updateLocation(LocationData.fromMap({
-                'latitude': (lat as num).toDouble(),
-                'longitude': (lng as num).toDouble(),
-              }));
-            }
-          })
-        ]);
+        WebInterop.getWebDeviceLocation((lat, lng) {
+          _updateLocation(LocationData.fromMap({
+            'latitude': lat,
+            'longitude': lng,
+          }));
+        });
         return;
       } catch (e) {
         logger.e("Web JS location error: $e");
@@ -110,7 +99,7 @@ class LocationModel extends ChangeNotifier {
   void cancelLocationUpdates() {
     if (kIsWeb) {
       try {
-        js.context.callMethod('stopWebDeviceLocation');
+        WebInterop.stopWebDeviceLocation();
       } catch (_) {}
     }
     if (locationStream != null) {

@@ -56,8 +56,8 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
 
   String get _baseUrl {
     try {
-      String origin = html.window.location.origin;
-      if (origin.startsWith('http')) return origin;
+      String? origin = html.window.location.origin;
+      if (origin != null && origin.startsWith('http')) return origin;
     } catch (_) {}
     String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
     if (configuredUrl.endsWith('/')) {
