@@ -14,6 +14,7 @@ import 'package:macless_haystack/history/accessory_history.dart';
 import 'package:macless_haystack/location/location_model.dart';
 
 import '../callbacks.dart';
+import '../radar/tag_radar_dialog.dart';
 import 'accessory_model.dart';
 
 class AccessoryList extends StatefulWidget {
@@ -102,6 +103,19 @@ class _AccessoryListState extends State<AccessoryList> {
                           motion: const ScrollMotion(),
                           dragDismissible: false,
                           children: [
+                            SlidableAction(
+                              onPressed: (context) {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) =>
+                                      TagRadarDialog(accessory: accessory),
+                                );
+                              },
+                              backgroundColor: Colors.deepPurple.shade700,
+                              foregroundColor: Colors.white,
+                              icon: Icons.sensors,
+                              label: 'Dò sóng',
+                            ),
                             SlidableAction(
                               onPressed: (context) {
                                 if (isTrackingThis) {

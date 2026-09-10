@@ -11,6 +11,7 @@ import 'package:macless_haystack/accessory/accessory_model.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:macless_haystack/item_management/accessory_name_input.dart';
 import 'package:intl/intl.dart';
+import '../radar/tag_radar_dialog.dart';
 
 class AccessoryDetail extends StatefulWidget {
   final Accessory accessory;
@@ -251,6 +252,17 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Dò sóng cự ly gần (Rada)',
+                      icon: const Icon(Icons.sensors, color: Colors.white),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) =>
+                              TagRadarDialog(accessory: widget.accessory),
+                        );
+                      },
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white),

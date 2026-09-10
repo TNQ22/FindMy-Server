@@ -63,6 +63,13 @@ Hệ thống máy chủ tự triển khai (**Self-hosted**) cho mạng lưới *
   - Chia sẻ quyền theo dõi thẻ cho người dùng khác trong hệ thống thông qua địa chỉ Email.
   - Người được chia sẻ có thể xem vị trí thời gian thực và lịch sử di chuyển mà không làm ảnh hưởng đến cấu hình gốc của thiết bị.
 
+- 📡 **Rada Dò Sóng Lân Cận (Bluetooth Proximity Radar - App Android)**:
+  - Dò tìm chính xác đồ vật trong phòng / nhà bằng cách đo cường độ sóng Bluetooth (**RSSI**) và ước tính khoảng cách theo thời gian thực.
+  - Giao diện Rada vòng tròn sóng xung điện từ trực quan, phản hồi xúc giác rung theo nhịp khoảng cách (càng lại gần rung càng nhanh).
+  - Đọc trực tiếp byte trạng thái pin phần cứng (`status byte`) từ gói quảng bá vô tuyến của Apple Find My.
+  - Thao tác nhanh: **Trượt sang phải** trên thẻ bất kỳ ngoài bản đồ để bấm **Dò sóng**, hoặc mở từ trang **Thiết lập thẻ**.
+  - Đóng gói file cài đặt `.apk` nhanh chóng bằng Docker với lệnh `docker build -f Dockerfile_apk --output type=local,dest=./build_output .` hoặc tải trực tiếp từ GitHub Actions.
+
 - 🎨 **Tùy Biến Thẻ & Biểu Tượng Đa Dạng**:
   - Đổi tên thẻ trực tiếp, tuỳ chọn kho biểu tượng phong phú (Xe hơi, Xe máy, Thú cưng, Balo, Chìa khóa, Trẻ em, Thiết bị...) cùng bảng màu đa dạng giúp phân biệt trực quan trên bản đồ.
 

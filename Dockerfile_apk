@@ -1,0 +1,25 @@
+# === Stage 1: Build Android APK with Flutter ===
+FROM instrumentisto/flutter:latest AS apk-builder
+
+WORKDIR /app_android
+
+# Copy Flutter project source
+COPY macless_haystack /app_android
+
+# Backup customized AndroidManifest with Bluetooth permissions
+RUN cp /app_android/android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml
+
+# Update Android scaffold to match modern Flutter Gradle structure
+RUN flutter create --platforms=android --org de.dchristl . \
+    && cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml
+
+# Accept Android SDK licenses
+RUN yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+# Fetch dependencies and compile Release APK
+RUN flutter pub get \
+    && flutter build apk --release --no-tree-shake-icons
+
+# === Stage 2: Export APK directly to host ===
+FROM scratch AS export-stage
+COPY --from=apk-builder /app_android/build/app/outputs/flutter-apk/app-release.apk /FindMy-Server-release.apk

@@ -1,0 +1,80 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'macless_haystack/**'
+      - 'version'
+      - '.github/workflows/build-apk.yaml'
+  workflow_dispatch: # Cho phép bấm nút "Run workflow" bằng tay trên giao diện GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build & Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Read Version
+        id: get_version
+        run: |
+          VERSION=$(cat version | tr -d '[:space:]')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building APK for version: $VERSION"
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Prepare Android Scaffold
+        working-directory: ./macless_haystack
+        run: |
+          cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml
+          flutter create --platforms=android --org de.dchristl .
+          cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+
+      - name: Install Dependencies
+        working-directory: ./macless_haystack
+        run: flutter pub get
+
+      - name: Build Release APK
+        working-directory: ./macless_haystack
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Rename APK
+        run: |
+          mv ./macless_haystack/build/app/outputs/flutter-apk/app-release.apk ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FindMy-Server-v${{ steps.get_version.outputs.VERSION }}-apk
+          path: ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
+
+      - name: Create GitHub Release (if tag or push)
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
+          files: ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
