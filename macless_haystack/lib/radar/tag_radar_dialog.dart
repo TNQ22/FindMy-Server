@@ -6,6 +6,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../accessory/accessory_icon_model.dart';
 import '../accessory/accessory_model.dart';
+import '../preferences/app_download_dialog.dart';
 import 'ble_radar_service.dart';
 
 /// Interactive Radar Proximity Dialog for finding a FindMy tag using BLE RSSI.
@@ -47,7 +48,7 @@ class _TagRadarDialogState extends State<TagRadarDialog>
       _startRadar();
     } else {
       _statusMessage =
-          'Rada Bluetooth yêu cầu truy cập phần cứng di động (Android / iOS).';
+          'Rada Bluetooth yêu cầu truy cập phần cứng di động (ứng dụng Android .apk).';
     }
   }
 
@@ -212,14 +213,43 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.amber.shade700),
                         ),
-                        child: Row(
+                        child: Column(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.amber.shade800),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text(
-                                'Tính năng quét sóng Bluetooth lân cận cần truy cập phần cứng chip Bluetooth, hiện chỉ hoạt động trên ứng dụng Android (.apk) hoặc iOS.',
-                                style: TextStyle(fontSize: 13),
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.amber.shade800),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    'Tính năng quét sóng Bluetooth lân cận cần truy cập chip Bluetooth phần cứng, hiện chỉ hoạt động trên ứng dụng Android (.apk). Trình duyệt Web không có quyền quét sóng nền.',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.teal.shade700,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                                ),
+                                icon: const Icon(Icons.android, size: 19, color: Colors.greenAccent),
+                                label: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Tải ứng dụng Android (APK)',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Icon(Icons.qr_code, size: 16, color: Colors.tealAccent),
+                                  ],
+                                ),
+                                onPressed: () => AppDownloadDialog.show(context),
                               ),
                             ),
                           ],
