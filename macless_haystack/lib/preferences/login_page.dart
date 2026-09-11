@@ -14,6 +14,7 @@ import 'package:macless_haystack/preferences/app_download_dialog.dart';
 import '../util/web_interop.dart';
 import '../util/server_url.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:file_picker/file_picker.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -389,72 +390,15 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showQrScannerDialog() {
-    bool detected = false;
-    final MobileScannerController scannerController = MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
-      facing: CameraFacing.back,
-    );
-
+  void _showQrOrTokenLoginDialog() {
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.qr_code_scanner, color: Colors.teal),
-            SizedBox(width: 8),
-            Text('Quét mã QR đăng nhập', style: TextStyle(fontSize: 18)),
-          ],
-        ),
-        content: SizedBox(
-          width: 300,
-          height: 320,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                MobileScanner(
-                  controller: scannerController,
-                  onDetect: (capture) {
-                    if (detected) return;
-                    for (final barcode in capture.barcodes) {
-                      final raw = barcode.rawValue;
-                      if (raw != null && raw.trim().isNotEmpty) {
-                        detected = true;
-                        scannerController.stop();
-                        scannerController.dispose();
-                        Navigator.pop(dialogCtx);
-                        _handleScannedQr(raw.trim());
-                        break;
-                      }
-                    }
-                  },
-                ),
-                Center(
-                  child: Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.tealAccent, width: 2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              scannerController.stop();
-              scannerController.dispose();
-              Navigator.pop(dialogCtx);
-            },
-            child: const Text('Hủy'),
-          ),
-        ],
+      barrierDismissible: true,
+      builder: (dialogCtx) => _QrTokenLoginDialog(
+        baseUrl: _baseUrl,
+        onQrScanned: (raw) => _handleScannedQr(raw),
+        onTokenLogin: (rawToken, {String? targetBaseUrl}) =>
+            _loginWithJwtToken(rawToken, targetBaseUrl: targetBaseUrl),
       ),
     );
   }
@@ -528,145 +472,7 @@ class _LoginPageState extends State<LoginPage> {
     await _loginWithJwtToken(tokenToLogin, targetBaseUrl: effectiveBaseUrl);
   }
 
-  void _showTokenLoginDialog() {
-    final tokenController = TextEditingController();
-    bool validating = false;
-    String? tokenError;
 
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.key, color: Colors.teal),
-                SizedBox(width: 8),
-                Text('Đăng nhập bằng Token', style: TextStyle(fontSize: 18)),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.dns, size: 14, color: Colors.teal),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Máy chủ: $_baseUrl',
-                            style: const TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w500),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Nếu bạn đã đăng nhập trên máy tính / Web, vào Menu góc phải -> Sao chép Token và dán vào đây:',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: tokenController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'JWT Token hoặc Bearer Key',
-                      hintText: 'eyJhbGciOi...',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.paste),
-                        tooltip: 'Dán từ bộ nhớ tạm',
-                        onPressed: () async {
-                          final data = await Clipboard.getData('text/plain');
-                          if (data?.text != null) {
-                            setDialogState(() {
-                              tokenController.text = data!.text!.trim();
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  if (tokenError != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      tokenError!,
-                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogCtx),
-                child: const Text('Hủy'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                onPressed: validating
-                    ? null
-                    : () async {
-                        String raw = tokenController.text.trim();
-                        if (raw.isEmpty) {
-                          setDialogState(() => tokenError = 'Vui lòng nhập Token.');
-                          return;
-                        }
-                        setDialogState(() {
-                          validating = true;
-                          tokenError = null;
-                        });
-
-                        String bearer = raw.startsWith('Bearer ') ? raw : 'Bearer $raw';
-                        try {
-                          final res = await http.get(
-                            Uri.parse('$_baseUrl/api/auth/me'),
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'Authorization': bearer,
-                            },
-                          ).timeout(const Duration(seconds: 5));
-
-                          if (res.statusCode == 200) {
-                            if (context.mounted) {
-                              Navigator.pop(dialogCtx);
-                              await Provider.of<AuthState>(context, listen: false).onLoginSuccess(bearer);
-                              widget.onLoginSuccess();
-                            }
-                          } else {
-                            setDialogState(() {
-                              validating = false;
-                              tokenError = 'Token không hợp lệ (Mã phản hồi ${res.statusCode}).';
-                            });
-                          }
-                        } catch (e) {
-                          setDialogState(() {
-                            validating = false;
-                            tokenError = 'Lỗi kết nối máy chủ: $e';
-                          });
-                        }
-                      },
-                child: validating
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Xác nhận đăng nhập', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -875,81 +681,62 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: _triggerGoogleLogin,
                     ),
                   ),
-                  if (!kIsWeb) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal.shade700,
-                          foregroundColor: Colors.white,
-                          elevation: 2,
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        icon: const Icon(Icons.qr_code_scanner, size: 20),
-                        label: const Text(
-                          'Quét mã QR đăng nhập',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: _showQrScannerDialog,
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.tealAccent,
-                        side: BorderSide(color: Colors.teal.shade600),
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal.shade700,
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                      icon: const Icon(Icons.qr_code_scanner, size: 20),
                       label: const Text(
-                        'Đăng nhập bằng Token',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        'Quét mã QR / Nhập Token',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
-                      onPressed: _showTokenLoginDialog,
+                      onPressed: _showQrOrTokenLoginDialog,
                     ),
                   ),
                 ],
 
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white12, height: 1),
-                const SizedBox(height: 16),
-
-                // Download Android App (APK) button with QR & Link
-                InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => AppDownloadDialog.show(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.teal.withOpacity(0.4)),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.android, size: 19, color: Colors.greenAccent),
-                        SizedBox(width: 8),
-                        Text(
-                          'Tải ứng dụng Android (APK)',
-                          style: TextStyle(
-                            color: Colors.tealAccent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
+                // Download Android App (APK) button with QR & Link - Chỉ hiện trên bản Web
+                if (kIsWeb) ...[
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white12, height: 1),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => AppDownloadDialog.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.teal.withOpacity(0.4)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.android, size: 19, color: Colors.greenAccent),
+                          SizedBox(width: 8),
+                          Text(
+                            'Tải ứng dụng Android (APK)',
+                            style: TextStyle(
+                              color: Colors.tealAccent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 6),
-                        Icon(Icons.qr_code, size: 16, color: Colors.tealAccent),
-                      ],
+                          SizedBox(width: 6),
+                          Icon(Icons.qr_code, size: 16, color: Colors.tealAccent),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ],
 
                 const SizedBox(height: 16),
                 Text(
@@ -962,6 +749,473 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QrTokenLoginDialog extends StatefulWidget {
+  final String baseUrl;
+  final Function(String rawQr) onQrScanned;
+  final Future<void> Function(String rawToken, {String? targetBaseUrl}) onTokenLogin;
+
+  const _QrTokenLoginDialog({
+    required this.baseUrl,
+    required this.onQrScanned,
+    required this.onTokenLogin,
+  });
+
+  @override
+  State<_QrTokenLoginDialog> createState() => _QrTokenLoginDialogState();
+}
+
+class _QrTokenLoginDialogState extends State<_QrTokenLoginDialog> {
+  int _selectedTab = 0; // 0: Quét QR, 1: Nhập Token
+  final MobileScannerController _scannerController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.normal,
+    facing: CameraFacing.back,
+  );
+  bool _detected = false;
+  bool _analyzingImage = false;
+  bool _torchOn = false;
+  String? _qrError;
+
+  final TextEditingController _tokenController = TextEditingController();
+  bool _validatingToken = false;
+  String? _tokenError;
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    _tokenController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImageAndAnalyze() async {
+    try {
+      setState(() {
+        _analyzingImage = true;
+        _qrError = null;
+      });
+
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        if (mounted) setState(() => _analyzingImage = false);
+        return;
+      }
+
+      final path = result.files.first.path;
+      if (path == null || path.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _analyzingImage = false;
+            _qrError = 'Không thể đọc đường dẫn ảnh trên thiết bị này.';
+          });
+        }
+        return;
+      }
+
+      final BarcodeCapture? capture = await _scannerController.analyzeImage(path);
+      if (capture != null && capture.barcodes.isNotEmpty) {
+        for (final barcode in capture.barcodes) {
+          final raw = barcode.rawValue;
+          if (raw != null && raw.trim().isNotEmpty) {
+            _detected = true;
+            if (mounted) {
+              Navigator.pop(context);
+              widget.onQrScanned(raw.trim());
+            }
+            return;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _analyzingImage = false;
+          _qrError = 'Không tìm thấy mã QR trong ảnh. Vui lòng chọn ảnh khác hoặc chuyển sang Nhập Token.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _analyzingImage = false;
+          _qrError = 'Không thể quét ảnh: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _submitToken() async {
+    final raw = _tokenController.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _tokenError = 'Vui lòng nhập mã Token.');
+      return;
+    }
+    setState(() {
+      _validatingToken = true;
+      _tokenError = null;
+    });
+
+    String bearer = raw.startsWith('Bearer ') ? raw : 'Bearer $raw';
+    try {
+      final res = await http.get(
+        Uri.parse('${widget.baseUrl}/api/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': bearer,
+        },
+      ).timeout(const Duration(seconds: 6));
+
+      if (res.statusCode == 200) {
+        if (mounted) {
+          Navigator.pop(context);
+          await widget.onTokenLogin(bearer, targetBaseUrl: widget.baseUrl);
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _validatingToken = false;
+            _tokenError = 'Token không hợp lệ hoặc đã hết hạn (Mã: ${res.statusCode}).';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _validatingToken = false;
+          _tokenError = 'Lỗi kết nối máy chủ: $e';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      titlePadding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+      title: Row(
+        children: [
+          Icon(
+            _selectedTab == 0 ? Icons.qr_code_scanner : Icons.vpn_key,
+            color: Colors.teal,
+            size: 22,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _selectedTab == 0 ? 'Quét mã QR đăng nhập' : 'Đăng nhập bằng Token',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            tooltip: 'Đóng',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 330,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Tab toggle bar
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => _selectedTab = 0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 0 ? Colors.teal : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.camera_alt, size: 16, color: _selectedTab == 0 ? Colors.white : Colors.grey),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Quét mã QR',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: _selectedTab == 0 ? Colors.white : Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => _selectedTab = 1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 1 ? Colors.teal : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.vpn_key, size: 16, color: _selectedTab == 1 ? Colors.white : Colors.grey),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Nhập Token',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: _selectedTab == 1 ? Colors.white : Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Tab 0: QR Scanner & Pick Image
+              if (_selectedTab == 0) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: double.infinity,
+                    height: 250,
+                    color: Colors.black,
+                    child: Stack(
+                      children: [
+                        MobileScanner(
+                          controller: _scannerController,
+                          onDetect: (capture) {
+                            if (_detected) return;
+                            for (final barcode in capture.barcodes) {
+                              final raw = barcode.rawValue;
+                              if (raw != null && raw.trim().isNotEmpty) {
+                                _detected = true;
+                                Navigator.pop(context);
+                                widget.onQrScanned(raw.trim());
+                                break;
+                              }
+                            }
+                          },
+                        ),
+                        Center(
+                          child: Container(
+                            width: 175,
+                            height: 175,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.tealAccent, width: 2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        // Quick controls: Flash & Switch camera
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Row(
+                            children: [
+                              Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.black45,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: Icon(
+                                    _torchOn ? Icons.flash_on : Icons.flash_off,
+                                    color: _torchOn ? Colors.amber : Colors.white,
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    _scannerController.toggleTorch();
+                                    setState(() => _torchOn = !_torchOn);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.black45,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.cameraswitch, color: Colors.white, size: 20),
+                                  onPressed: () => _scannerController.switchCamera(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Button pick image from gallery / files
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.tealAccent,
+                      side: BorderSide(color: Colors.teal.shade600),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: _analyzingImage
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.tealAccent),
+                          )
+                        : const Icon(Icons.photo_library, size: 18),
+                    label: Text(
+                      _analyzingImage ? 'Đang đọc mã QR từ ảnh...' : 'Chọn ảnh mã QR từ thiết bị',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: _analyzingImage ? null : _pickImageAndAnalyze,
+                  ),
+                ),
+
+                if (_qrError != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                    ),
+                    child: Text(
+                      _qrError!,
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => setState(() => _selectedTab = 1),
+                  child: const Text(
+                    'Không thể dùng camera? Bấm để Nhập Token',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ),
+              ],
+
+              // Tab 1: Token Login
+              if (_selectedTab == 1) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.dns, size: 14, color: Colors.teal),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Máy chủ: ${widget.baseUrl}',
+                          style: const TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Nếu bạn đã đăng nhập trên Web / máy tính khác, vào Menu góc phải -> Sao chép Token và dán vào đây:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _tokenController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'JWT Token hoặc Bearer Key',
+                    hintText: 'eyJhbGciOi...',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.paste),
+                      tooltip: 'Dán từ bộ nhớ tạm',
+                      onPressed: () async {
+                        final data = await Clipboard.getData('text/plain');
+                        if (data?.text != null) {
+                          setState(() {
+                            _tokenController.text = data!.text!.trim();
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                if (_tokenError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _tokenError!,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: _validatingToken ? null : _submitToken,
+                    child: _validatingToken
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Xác nhận đăng nhập', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed: () => setState(() => _selectedTab = 0),
+                  child: const Text(
+                    'Quay lại Quét mã QR',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

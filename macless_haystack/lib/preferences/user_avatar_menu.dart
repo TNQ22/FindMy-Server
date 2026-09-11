@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 
@@ -628,40 +630,66 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                         ),
 
                         const SizedBox(height: 12),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            AppDownloadDialog.show(context);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.android, size: 14, color: Colors.teal),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  'Tải App Android',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.teal,
-                                    fontWeight: FontWeight.bold,
+                        if (kIsWeb)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              AppDownloadDialog.show(context);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.android, size: 14, color: Colors.teal),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    'Tải App Android',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.teal,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Text('•', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.code, size: 13, color: Colors.grey),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'v$_appVersion • GitHub',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  const Text('•', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.code, size: 13, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'v$_appVersion • GitHub',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () async {
+                              Navigator.pop(ctx);
+                              final url = Uri.parse('https://github.com/TNQ22/FindMy-Server/releases/latest');
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url, mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.code, size: 13, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'FindMy Server v$_appVersion • GitHub',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
