@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:macless_haystack/dashboard/app_toast.dart';
@@ -163,8 +164,12 @@ class _AccessoryListState extends State<AccessoryList> {
                             if (accessory.lastLocation != null &&
                                 accessory.isActive) {
                               var loc = accessory.lastLocation!;
-                              await MapsLauncher.launchCoordinates(
-                                  loc.latitude, loc.longitude, accessory.name);
+                              final uri = Uri.parse(
+                                  'https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}');
+                              try {
+                                await launchUrl(uri,
+                                    mode: LaunchMode.externalApplication);
+                              } catch (_) {}
                             }
                           },
                           foregroundColor: Theme.of(context).primaryColor,

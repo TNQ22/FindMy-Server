@@ -7,6 +7,7 @@ import 'package:universal_html/html.dart' as html;
 
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/zones/zone_model.dart';
+import 'package:macless_haystack/util/server_url.dart';
 
 class ZoneRegistry extends ChangeNotifier {
   List<ZoneItem> _zones = [];
@@ -25,17 +26,7 @@ class ZoneRegistry extends ChangeNotifier {
   ZoneItem? get focusedZone => _focusedZone;
   ZoneItem? get highlightedZone => _highlightedZone;
 
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   Map<String, String> get _headers {
     Map<String, String> headers = {'Content-Type': 'application/json'};

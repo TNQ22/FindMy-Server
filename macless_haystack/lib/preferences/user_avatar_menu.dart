@@ -15,6 +15,8 @@ import 'package:macless_haystack/admin/admin_page.dart';
 import 'package:macless_haystack/preferences/notification_settings_dialog.dart';
 import 'package:macless_haystack/zones/zone_management_dialog.dart';
 
+import 'package:macless_haystack/util/server_url.dart';
+
 class UserAvatarMenu extends StatefulWidget {
   const UserAvatarMenu({super.key});
 
@@ -37,17 +39,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
     _fetchAppVersion();
   }
 
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   Future<void> _fetchAppVersion() async {
     try {
@@ -163,11 +155,100 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Để đăng nhập trên app Android FindMy Server, bạn có thể thực hiện theo 2 bước:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+              // 1. QR Code Section for Fast App Scanning
+              if (token.isNotEmpty) ...[
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.teal.shade200),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=4&data=${Uri.encodeComponent(jsonEncode({"server": serverUrl, "token": token}))}',
+                            width: 180,
+                            height: 180,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const SizedBox(
+                                width: 180,
+                                height: 180,
+                                child: Center(
+                                  child: CircularProgressIndicator(color: Colors.teal),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) => const SizedBox(
+                              width: 180,
+                              height: 180,
+                              child: Center(
+                                child: Text('Không thể tải mã QR', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          '📷 Quét mã bằng App FindMy',
+                          style: TextStyle(
+                            color: Colors.teal,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // 2. High-contrast Instruction Box
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.teal.shade900.withOpacity(0.35)
+                      : Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.teal.shade400.withOpacity(0.4)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.qr_code_scanner, size: 20, color: Colors.teal),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Mở app Android -> Bấm "Quét mã QR" để kết nối tự động trong 1 giây! Hoặc sao chép Server URL và Token bên dưới để dán vào.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.tealAccent.shade100
+                              : Colors.teal.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
+
               const Text(
                 '1. Địa chỉ Máy chủ (Server URL):',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.teal),
@@ -176,7 +257,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.25),
+                  color: Colors.black.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.withOpacity(0.3)),
                 ),
@@ -210,7 +291,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.25),
+                  color: Colors.black.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.withOpacity(0.3)),
                 ),
@@ -236,19 +317,6 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             },
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.teal.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.teal.withOpacity(0.4)),
-                ),
-                child: const Text(
-                  '💡 Mở app Android -> Bấm biểu tượng ⚙️ để dán Server URL -> Bấm "Đăng nhập bằng Token" và dán mã Token này vào là kết nối thành công ngay lập tức!',
-                  style: TextStyle(fontSize: 12, color: Colors.tealAccent),
                 ),
               ),
             ],

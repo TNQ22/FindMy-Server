@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
-import 'package:universal_html/html.dart' as html;
+import '../util/server_url.dart';
 
 class NotificationSettingsDialog extends StatefulWidget {
   final String? userEmail;
@@ -54,17 +54,7 @@ class _NotificationSettingsDialogState extends State<NotificationSettingsDialog>
     super.dispose();
   }
 
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   Map<String, String> get _headers {
     Map<String, String> headers = {'Content-Type': 'application/json'};

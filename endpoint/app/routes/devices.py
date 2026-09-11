@@ -533,10 +533,10 @@ async def update_device_companion_settings(
             device.master_device_id = None
             device.separation_alert_enabled = False
 
-    if body.master_device_id is not None:
-        if body.master_device_id == device.id:
-            raise HTTPException(status_code=400, detail="Thiết bị không thể tự làm thiết bị chủ của chính nó")
-        if body.master_device_id > 0:
+    if "master_device_id" in body.model_fields_set:
+        if body.master_device_id is not None and body.master_device_id > 0:
+            if body.master_device_id == device.id:
+                raise HTTPException(status_code=400, detail="Thiết bị không thể tự làm thiết bị chủ của chính nó")
             m_stmt = select(Device).where(Device.id == body.master_device_id, Device.user_id == current_user.id)
             master = (await db.execute(m_stmt)).scalar_one_or_none()
             if not master:
@@ -548,6 +548,7 @@ async def update_device_companion_settings(
             device.is_master = False
         else:
             device.master_device_id = None
+            device.separation_alert_enabled = False
 
     if body.separation_alert_enabled is not None:
         device.separation_alert_enabled = body.separation_alert_enabled

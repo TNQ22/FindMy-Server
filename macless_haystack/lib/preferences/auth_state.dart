@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:http/http.dart' as http;
+import '../util/server_url.dart';
 
 /// Single source of truth for authentication state across the app.
 /// Any component that detects a 401 should call [onUnauthorized] to
@@ -33,6 +35,19 @@ class AuthState extends ChangeNotifier {
 
   /// Call this when the user actively logs out.
   Future<void> logout() async {
+    final token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    if (token.trim().isNotEmpty) {
+      try {
+        final baseUrl = getServerBaseUrl();
+        await http.post(
+          Uri.parse('$baseUrl/api/auth/logout'),
+          headers: {
+            'Authorization': token.trim().startsWith('Bearer ') ? token.trim() : 'Bearer ${token.trim()}',
+          },
+        ).timeout(const Duration(seconds: 2));
+      } catch (_) {}
+    }
+
     await Settings.setValue<String>(endpointUser, '');
     try {
       html.window.localStorage.remove('ENDPOINT_USER');

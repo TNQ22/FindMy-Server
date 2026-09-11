@@ -9,7 +9,7 @@ import 'package:macless_haystack/item_management/accessory_color_input.dart';
 import 'package:macless_haystack/item_management/accessory_icon_input.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
-import 'package:universal_html/html.dart' as html;
+import '../util/server_url.dart';
 
 class AdminAddTagDialog extends StatefulWidget {
   final int userId;
@@ -31,17 +31,7 @@ class _AdminAddTagDialogState extends State<AdminAddTagDialog> {
   bool _loading = false;
   String? _error;
 
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();

@@ -13,6 +13,7 @@ class User(Base):
     picture: Mapped[str | None] = mapped_column(Text, nullable=True)
     settings_json: Mapped[str] = mapped_column(Text, default="{}")
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    token_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     icloud_accounts: Mapped[list["ICloudAccount"]] = relationship("ICloudAccount", back_populates="user", cascade="all, delete-orphan")

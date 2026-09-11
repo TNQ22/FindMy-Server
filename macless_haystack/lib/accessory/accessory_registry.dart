@@ -12,6 +12,7 @@ import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:universal_html/html.dart' as html;
+import 'package:macless_haystack/util/server_url.dart';
 
 const accessoryStorageKey = 'ACCESSORIES';
 const historyStorageKey = 'HISTORY';
@@ -156,19 +157,7 @@ class AccessoryRegistry extends ChangeNotifier {
     _storage = s;
   }
 
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl =
-        Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl =
-          configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   Map<String, String> get _authHeaders {
     Map<String, String> headers = {'Content-Type': 'application/json'};
@@ -611,7 +600,7 @@ class AccessoryRegistry extends ChangeNotifier {
     try {
       final Map<String, dynamic> body = {};
       if (isMaster != null) body['is_master'] = isMaster;
-      if (masterDeviceId != null) body['master_device_id'] = masterDeviceId;
+      body['master_device_id'] = masterDeviceId ?? 0;
       if (separationAlertEnabled != null) {
         body['separation_alert_enabled'] = separationAlertEnabled;
       }

@@ -6,19 +6,12 @@ WORKDIR /app_android
 # Copy Flutter project source
 COPY macless_haystack /app_android
 
-# Update Android scaffold to match modern Flutter Gradle structure while preserving AndroidManifest
-RUN if [ -f /app_android/android/app/src/main/AndroidManifest.xml ]; then \
-      cp /app_android/android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml && \
-      rm -rf /app_android/android && \
-      flutter create --no-pub --platforms=android --org de.dchristl . && \
-      cp /tmp/AndroidManifest.xml /app_android/android/app/src/main/AndroidManifest.xml; \
-    else \
-      rm -rf /app_android/android && \
-      flutter create --no-pub --platforms=android --org de.dchristl .; \
-    fi
+# Prepare Android scaffold preserving custom icons, signing key (debug.store with V1+V2), and package ID
+RUN python3 scripts/prepare_android.py
 
-# Accept Android SDK licenses
-RUN yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager --licenses || true
+# Accept Android SDK licenses and ensure Android SDK Platform 36 is installed
+RUN yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager --licenses || true \
+    && yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" || true
 
 # Fetch dependencies and compile Release APK
 RUN flutter pub get \

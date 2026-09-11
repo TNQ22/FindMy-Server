@@ -16,8 +16,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:macless_haystack/zones/zone_registry.dart';
 import 'package:macless_haystack/preferences/login_page.dart';
 
-void main() {
-  Settings.init();
+import 'package:macless_haystack/util/server_url.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Settings.init();
   initializeDateFormatting();
   runApp(const MyApp());
 }
@@ -122,8 +125,7 @@ class _AppLayoutState extends State<AppLayout> {
 
   Future<void> _initAppConfig() async {
     try {
-      String? origin = html.window.location.origin;
-      String baseUrl = (origin != null && origin.startsWith('http')) ? origin : 'http://localhost:6176';
+      String baseUrl = getServerBaseUrl();
       final res = await http.get(Uri.parse('$baseUrl/api/config'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);

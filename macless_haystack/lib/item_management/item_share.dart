@@ -9,6 +9,8 @@ import 'package:macless_haystack/accessory/accessory_registry.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:provider/provider.dart';
 
+import '../util/server_url.dart';
+
 class ItemShareAction extends StatelessWidget {
   final Accessory accessory;
 
@@ -56,17 +58,7 @@ class _ItemShareDialogState extends State<ItemShareDialog> {
   final TextEditingController _customEmailController = TextEditingController();
   bool _useCustomEmail = false;
 
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   Map<String, String> get _authHeaders {
     String token = Settings.getValue<String>(endpointUser, defaultValue: '')!;

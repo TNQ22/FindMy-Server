@@ -43,11 +43,7 @@ jobs:
 
       - name: Prepare Android Scaffold
         working-directory: ./macless_haystack
-        run: |
-          cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml
-          rm -rf android
-          flutter create --no-pub --platforms=android --org de.dchristl .
-          cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+        run: python3 scripts/prepare_android.py
 
       - name: Install Dependencies
         working-directory: ./macless_haystack

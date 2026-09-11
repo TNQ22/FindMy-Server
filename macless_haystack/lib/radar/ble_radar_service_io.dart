@@ -98,7 +98,7 @@ class BleRadarService {
       // Cancel previous subscription if any
       await _scanSubscription?.cancel();
 
-      _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
+      _scanSubscription = FlutterBluePlus.onScanResults.listen((results) {
         for (final r in results) {
           _processScanResult(r);
         }
@@ -106,10 +106,12 @@ class BleRadarService {
         _logger.e('BleRadar scan error: $err');
       });
 
-      // Start BLE scan with fine location enabled on Android
+      // Start BLE scan with continuous updates (no duplicate filtering on Android)
       await FlutterBluePlus.startScan(
         timeout: const Duration(minutes: 15),
         androidUsesFineLocation: true,
+        continuousUpdates: true,
+        androidScanMode: AndroidScanMode.lowLatency,
       );
 
       return true;

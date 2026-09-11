@@ -112,6 +112,14 @@ async def get_current_user(
             result = await db.execute(select(User).where(User.id == user_id))
             user = result.scalar_one_or_none()
             if user:
+                token_ver = payload.get("v")
+                current_ver = user.token_version or 1
+                if token_ver is not None and token_ver < current_ver:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Phiên đăng nhập đã bị vô hiệu hóa sau khi đăng xuất. Vui lòng đăng nhập lại!",
+                        headers={"WWW-Authenticate": "Bearer"}
+                    )
                 return user
 
     # 2. Try Basic Auth (for backward compatibility with mh_endpoint)

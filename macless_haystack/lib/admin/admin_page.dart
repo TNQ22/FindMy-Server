@@ -6,7 +6,7 @@ import 'package:macless_haystack/dashboard/app_toast.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/admin/admin_add_tag_dialog.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
-import 'package:universal_html/html.dart' as html;
+import '../util/server_url.dart';
 import 'package:file_picker/file_picker.dart';
 
 class AdminPage extends StatefulWidget {
@@ -17,17 +17,7 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
   
   List<dynamic> _users = [];
   bool _loading = true;
@@ -431,17 +421,7 @@ class _AdminShareTagsDialogState extends State<AdminShareTagsDialog> {
   bool _loading = true;
   String? _error;
 
-  String get _baseUrl {
-    try {
-      String? origin = html.window.location.origin;
-      if (origin != null && origin.startsWith('http')) return origin;
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   @override
   void initState() {

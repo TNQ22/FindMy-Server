@@ -8,7 +8,7 @@ import 'package:macless_haystack/findMy/models.dart';
 import 'package:macless_haystack/findMy/reports_fetcher.dart';
 import 'package:logger/logger.dart';
 import 'package:pointycastle/export.dart';
-import 'package:universal_html/html.dart' as html;
+import '../util/server_url.dart';
 
 // ignore: implementation_imports
 import 'package:pointycastle/src/platform_check/platform_check.dart';
@@ -36,19 +36,8 @@ class FindMyController {
       await _loadPrivateKey(kp);
     }
 
-    String resolvedUrl = url ?? '';
-    try {
-      if (kIsWeb) {
-        String? origin = html.window.location.origin;
-        if (origin != null && origin.startsWith('http')) {
-          resolvedUrl = '$origin/api/reports/fetch';
-        }
-      }
-    } catch (_) {}
-
-    if (resolvedUrl.isEmpty) {
-      resolvedUrl = 'http://localhost:6176/api/reports/fetch';
-    } else if (!resolvedUrl.contains('/api/reports/fetch') && !resolvedUrl.endsWith('/fetch')) {
+    String resolvedUrl = (url != null && url.isNotEmpty) ? url : getServerBaseUrl();
+    if (!resolvedUrl.contains('/api/reports/fetch') && !resolvedUrl.endsWith('/fetch')) {
       if (resolvedUrl.endsWith('/')) {
         resolvedUrl = '${resolvedUrl}api/reports/fetch';
       } else {

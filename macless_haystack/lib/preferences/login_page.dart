@@ -11,6 +11,8 @@ import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/preferences/google_auth_dialog.dart';
 import '../util/web_interop.dart';
+import '../util/server_url.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -49,19 +51,7 @@ class _LoginPageState extends State<LoginPage> {
     } catch (_) {}
   }
 
-  String get _baseUrl {
-    try {
-      String? origin = WebInterop.windowOrigin;
-      if (origin != null && origin.startsWith('http')) {
-        return origin;
-      }
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   bool get _isConfiguredServer {
     String configured = Settings.getValue<String>(endpointUrl, defaultValue: '')!.trim();
@@ -260,8 +250,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showServerConfigDialog({String? promptReason}) {
-    final currentUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    final controller = TextEditingController(text: currentUrl.isEmpty ? 'http://192.168.1.' : currentUrl);
+    final currentUrl = Settings.getValue<String>(endpointUrl, defaultValue: 'https://findmy.tnq.io.vn')!;
+    final controller = TextEditingController(text: currentUrl.isEmpty ? 'https://findmy.tnq.io.vn' : currentUrl);
     String? pingStatus;
     bool pinging = false;
 
@@ -398,6 +388,98 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  void _showQrScannerDialog() {
+    bool detected = false;
+    final MobileScannerController scannerController = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.qr_code_scanner, color: Colors.teal),
+            SizedBox(width: 8),
+            Text('Quét mã QR đăng nhập', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: SizedBox(
+          width: 300,
+          height: 320,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                MobileScanner(
+                  controller: scannerController,
+                  onDetect: (capture) {
+                    if (detected) return;
+                    for (final barcode in capture.barcodes) {
+                      final raw = barcode.rawValue;
+                      if (raw != null && raw.trim().isNotEmpty) {
+                        detected = true;
+                        scannerController.stop();
+                        scannerController.dispose();
+                        Navigator.pop(dialogCtx);
+                        _handleScannedQr(raw.trim());
+                        break;
+                      }
+                    }
+                  },
+                ),
+                Center(
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.tealAccent, width: 2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              scannerController.stop();
+              scannerController.dispose();
+              Navigator.pop(dialogCtx);
+            },
+            child: const Text('Hủy'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleScannedQr(String raw) async {
+    String tokenToLogin = raw;
+    try {
+      if (raw.startsWith('{') && raw.endsWith('}')) {
+        final map = jsonDecode(raw);
+        if (map['server'] != null && map['server'].toString().trim().isNotEmpty) {
+          String s = map['server'].toString().trim();
+          if (s.endsWith('/')) s = s.substring(0, s.length - 1);
+          await Settings.setValue<String>(endpointUrl, s);
+        }
+        if (map['token'] != null && map['token'].toString().trim().isNotEmpty) {
+          tokenToLogin = map['token'].toString().trim();
+        }
+      }
+    } catch (_) {}
+
+    setState(() {
+      _errorMessage = null;
+    });
+    _verifyAndLoginToken(tokenToLogin);
+  }
+
   void _showTokenLoginDialog() {
     final tokenController = TextEditingController();
     bool validating = false;
@@ -420,6 +502,28 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.dns, size: 14, color: Colors.teal),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Máy chủ: $_baseUrl',
+                            style: const TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   const Text(
                     'Nếu bạn đã đăng nhập trên máy tính / Web, vào Menu góc phải -> Sao chép Token và dán vào đây:',
                     style: TextStyle(fontSize: 13, color: Colors.grey),
@@ -579,56 +683,57 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // Server URL indicator bar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _isConfiguredServer ? Colors.teal.withOpacity(0.5) : Colors.orange.withOpacity(0.5),
+                // Server URL indicator bar (only visible on mobile/desktop, hidden on Web)
+                if (!kIsWeb) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _isConfiguredServer ? Colors.teal.withOpacity(0.5) : Colors.orange.withOpacity(0.5),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isConfiguredServer ? Icons.cloud_done : Icons.warning_amber_rounded,
+                          color: _isConfiguredServer ? Colors.tealAccent : Colors.orange,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isConfiguredServer ? 'Máy chủ kết nối:' : 'Chưa cấu hình máy chủ:',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: _isConfiguredServer ? Colors.grey.shade400 : Colors.orange.shade300,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                _baseUrl,
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.settings, size: 18, color: Colors.tealAccent),
+                          tooltip: 'Đổi máy chủ',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _showServerConfigDialog(),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _isConfiguredServer ? Icons.cloud_done : Icons.warning_amber_rounded,
-                        color: _isConfiguredServer ? Colors.tealAccent : Colors.orange,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _isConfiguredServer ? 'Máy chủ kết nối:' : 'Chưa cấu hình máy chủ:',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: _isConfiguredServer ? Colors.grey.shade400 : Colors.orange.shade300,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              _baseUrl,
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.settings, size: 18, color: Colors.tealAccent),
-                        tooltip: 'Đổi máy chủ',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => _showServerConfigDialog(),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                ],
 
                 // Show session-expired banner if redirected from a 401
                 if (widget.sessionExpired) ...[
@@ -722,20 +827,44 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: _triggerGoogleLogin,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.tealAccent,
-                      side: BorderSide(color: Colors.teal.shade600),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  if (!kIsWeb) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal.shade700,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.qr_code_scanner, size: 20),
+                        label: const Text(
+                          'Quét mã QR đăng nhập',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _showQrScannerDialog,
+                      ),
                     ),
-                    icon: const Icon(Icons.vpn_key_outlined, size: 18),
-                    label: const Text(
-                      'Đăng nhập bằng Token',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.tealAccent,
+                        side: BorderSide(color: Colors.teal.shade600),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                      label: const Text(
+                        'Đăng nhập bằng Token',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                      onPressed: _showTokenLoginDialog,
                     ),
-                    onPressed: _showTokenLoginDialog,
                   ),
                 ],
 

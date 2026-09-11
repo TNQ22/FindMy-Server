@@ -71,6 +71,9 @@ dependencies:
   # Bluetooth LE
   flutter_blue_plus: ^1.35.6
 
+  # Barcode / QR Scanner
+  mobile_scanner: ^6.0.4
+
 dev_dependencies:
 
   dependency_validator: ^5.0.3

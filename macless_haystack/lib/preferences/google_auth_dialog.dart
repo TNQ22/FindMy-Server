@@ -8,6 +8,7 @@ import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/accessory/accessory_registry.dart';
 import '../util/web_interop.dart';
+import '../util/server_url.dart';
 
 const String googleClientIdKey = 'GOOGLE_CLIENT_ID';
 
@@ -40,19 +41,7 @@ class _GoogleAuthDialogState extends State<GoogleAuthDialog> {
     } catch (_) {}
   }
 
-  String get _baseUrl {
-    try {
-      String? origin = WebInterop.windowOrigin;
-      if (origin != null && origin.startsWith('http')) {
-        return origin;
-      }
-    } catch (_) {}
-    String configuredUrl = Settings.getValue<String>(endpointUrl, defaultValue: '')!;
-    if (configuredUrl.endsWith('/')) {
-      configuredUrl = configuredUrl.substring(0, configuredUrl.length - 1);
-    }
-    return configuredUrl.isEmpty ? 'http://localhost:6176' : configuredUrl;
-  }
+  String get _baseUrl => getServerBaseUrl();
 
   Future<String?> _getOrFetchClientId() async {
     try {

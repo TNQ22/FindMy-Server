@@ -35,7 +35,7 @@ async def complete_auth_session(sid: str, body: GoogleAuthRequest, db: AsyncSess
         raise HTTPException(status_code=404, detail="Phiên đăng nhập không tồn tại hoặc đã hết hạn")
     id_info = await verify_google_token(body.id_token)
     user = await get_or_create_user_from_google(id_info, db)
-    token = create_access_token({"sub": str(user.id), "email": user.email})
+    token = create_access_token({"sub": str(user.id), "email": user.email, "v": user.token_version or 1})
     _auth_sessions[sid]["token"] = token
     _auth_sessions[sid]["user"] = UserResponse.model_validate(user).model_dump()
     return {"status": "ok"}
@@ -178,12 +178,24 @@ async def mobile_login_page(session: str):
 async def login_google(body: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     id_info = await verify_google_token(body.id_token)
     user = await get_or_create_user_from_google(id_info, db)
-    token = create_access_token({"sub": str(user.id), "email": user.email})
+    token = create_access_token({"sub": str(user.id), "email": user.email, "v": user.token_version or 1})
     return TokenResponse(
         access_token=token,
         token_type="bearer",
         user=UserResponse.model_validate(user)
     )
+
+@router.post("/logout")
+async def logout(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Revoke all existing tokens for this user by incrementing token_version.
+    """
+    current_user.token_version = (current_user.token_version or 1) + 1
+    await db.commit()
+    return {"status": "ok", "message": "Đã đăng xuất thành công và vô hiệu hóa các phiên token cũ."}
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
