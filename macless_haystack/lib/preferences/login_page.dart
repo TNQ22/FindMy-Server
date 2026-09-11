@@ -458,8 +458,56 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Future<void> _loginWithJwtToken(String rawToken, {String? targetBaseUrl}) async {
+    final baseUrl = targetBaseUrl ?? _baseUrl;
+    setState(() {
+      _loading = true;
+      _statusMessage = 'Đang xác thực thông tin đăng nhập...';
+      _errorMessage = null;
+    });
+
+    String bearer = rawToken.startsWith('Bearer ') ? rawToken : 'Bearer $rawToken';
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/api/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': bearer,
+        },
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        if (mounted) {
+          await Provider.of<AuthState>(context, listen: false).onLoginSuccess(bearer);
+          widget.onLoginSuccess();
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _errorMessage = 'Mã đăng nhập không hợp lệ hoặc đã hết hạn (Mã phản hồi ${res.statusCode}).';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'Lỗi kết nối máy chủ ($baseUrl): $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _handleScannedQr(String raw) async {
     String tokenToLogin = raw;
+    String effectiveBaseUrl = _baseUrl;
     try {
       if (raw.startsWith('{') && raw.endsWith('}')) {
         final map = jsonDecode(raw);
@@ -467,6 +515,10 @@ class _LoginPageState extends State<LoginPage> {
           String s = map['server'].toString().trim();
           if (s.endsWith('/')) s = s.substring(0, s.length - 1);
           await Settings.setValue<String>(endpointUrl, s);
+          effectiveBaseUrl = s;
+          setState(() {
+            _baseUrl = s;
+          });
         }
         if (map['token'] != null && map['token'].toString().trim().isNotEmpty) {
           tokenToLogin = map['token'].toString().trim();
@@ -474,10 +526,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (_) {}
 
-    setState(() {
-      _errorMessage = null;
-    });
-    _verifyAndLoginToken(tokenToLogin);
+    await _loginWithJwtToken(tokenToLogin, targetBaseUrl: effectiveBaseUrl);
   }
 
   void _showTokenLoginDialog() {
