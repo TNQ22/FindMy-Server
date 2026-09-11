@@ -1081,23 +1081,24 @@ class _QrTokenLoginDialogState extends State<_QrTokenLoginDialog> {
                 // Button pick image from gallery / files
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.tealAccent,
-                      side: BorderSide(color: Colors.teal.shade600),
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade700,
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: _analyzingImage
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.tealAccent),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Icon(Icons.photo_library, size: 18),
+                        : const Icon(Icons.photo_library, size: 18, color: Colors.white),
                     label: Text(
                       _analyzingImage ? 'Đang đọc mã QR từ ảnh...' : 'Chọn ảnh mã QR từ thiết bị',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     onPressed: _analyzingImage ? null : _pickImageAndAnalyze,
                   ),
@@ -1123,9 +1124,13 @@ class _QrTokenLoginDialogState extends State<_QrTokenLoginDialog> {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => setState(() => _selectedTab = 1),
-                  child: const Text(
+                  child: Text(
                     'Không thể dùng camera? Bấm để Nhập Token',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -1209,9 +1214,13 @@ class _QrTokenLoginDialogState extends State<_QrTokenLoginDialog> {
                 const SizedBox(height: 6),
                 TextButton(
                   onPressed: () => setState(() => _selectedTab = 0),
-                  child: const Text(
+                  child: Text(
                     'Quay lại Quét mã QR',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
