@@ -19,9 +19,13 @@ def run_direct_sqlite_migration():
         # ── users ─────────────────────────────────────────────────────────────
         cursor.execute("PRAGMA table_info(users);")
         user_cols = [row[1] for row in cursor.fetchall()]
-        if user_cols and "settings_json" not in user_cols:
-            print("Direct Migration: Adding settings_json column to users table...")
-            cursor.execute("ALTER TABLE users ADD COLUMN settings_json TEXT DEFAULT '{}';")
+        if user_cols:
+            if "settings_json" not in user_cols:
+                print("Direct Migration: Adding settings_json column to users table...")
+                cursor.execute("ALTER TABLE users ADD COLUMN settings_json TEXT DEFAULT '{}';")
+            if "token_version" not in user_cols:
+                print("Direct Migration: Adding token_version column to users table...")
+                cursor.execute("ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 1;")
 
         # ── icloud_accounts ───────────────────────────────────────────────────
         cursor.execute("PRAGMA table_info(icloud_accounts);")
