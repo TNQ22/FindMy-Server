@@ -41,14 +41,9 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Prepare Android Scaffold
-        working-directory: ./macless_haystack
-        run: python3 scripts/prepare_android.py
-
       - name: Install Dependencies
         working-directory: ./macless_haystack
-        run: |
-          for i in 1 2 3; do flutter pub get && break || (echo "Retrying pub get..." && sleep 5); done
+        run: flutter pub get
 
       - name: Build Release APK
         working-directory: ./macless_haystack

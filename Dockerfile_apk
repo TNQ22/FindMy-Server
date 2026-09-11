@@ -6,16 +6,13 @@ WORKDIR /app_android
 # Copy Flutter project source
 COPY macless_haystack /app_android
 
-# Prepare Android scaffold preserving custom icons, signing key (debug.store with V1+V2), and package ID
-RUN python3 scripts/prepare_android.py
-
-# Accept Android SDK licenses and ensure Android SDK Platform 36 is installed
-RUN yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager --licenses || true \
-    && yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" || true
+# Accept Android SDK licenses
+RUN yes | /opt/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
 # Fetch dependencies and compile Release APK
-RUN flutter pub get \
-    && flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
+RUN --mount=type=cache,target=/root/.gradle \
+    flutter pub get \
+    && flutter build apk --release --no-tree-shake-icons
 
 # === Stage 2: Export APK directly to host ===
 FROM scratch AS export-stage
