@@ -10,6 +10,7 @@ import 'package:flutter_settings_screens/flutter_settings_screens.dart';
 import 'package:macless_haystack/preferences/user_preferences_model.dart';
 import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/preferences/google_auth_dialog.dart';
+import 'package:macless_haystack/preferences/app_download_dialog.dart';
 import '../util/web_interop.dart';
 import '../util/server_url.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -915,7 +916,42 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white12, height: 1),
+                const SizedBox(height: 16),
+
+                // Download Android App (APK) button with QR & Link
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => AppDownloadDialog.show(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.teal.withOpacity(0.4)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.android, size: 19, color: Colors.greenAccent),
+                        SizedBox(width: 8),
+                        Text(
+                          'Tải ứng dụng Android (APK)',
+                          style: TextStyle(
+                            color: Colors.tealAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.qr_code, size: 16, color: Colors.tealAccent),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
                 Text(
                   'Ứng dụng yêu cầu đăng nhập tài khoản Google để bảo mật dữ liệu và phân quyền thiết bị.',
                   textAlign: TextAlign.center,

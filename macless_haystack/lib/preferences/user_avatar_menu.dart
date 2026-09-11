@@ -14,6 +14,7 @@ import 'package:macless_haystack/preferences/auth_state.dart';
 import 'package:macless_haystack/admin/admin_page.dart';
 import 'package:macless_haystack/preferences/notification_settings_dialog.dart';
 import 'package:macless_haystack/zones/zone_management_dialog.dart';
+import 'package:macless_haystack/preferences/app_download_dialog.dart';
 
 import 'package:macless_haystack/util/server_url.dart';
 
@@ -628,20 +629,33 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
 
                         const SizedBox(height: 12),
                         InkWell(
+                          borderRadius: BorderRadius.circular(8),
                           onTap: () {
-                            try {
-                              html.window.open('https://github.com/tnq22/FindMy-Server', '_blank');
-                            } catch (_) {}
+                            Navigator.pop(ctx);
+                            AppDownloadDialog.show(context);
                           },
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                const Icon(Icons.android, size: 14, color: Colors.teal),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Tải App Android',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.teal,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Text('•', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                const SizedBox(width: 6),
                                 const Icon(Icons.code, size: 13, color: Colors.grey),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'FindMy Server v$_appVersion • GitHub',
+                                  'v$_appVersion • GitHub',
                                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                                 ),
                               ],
