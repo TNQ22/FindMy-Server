@@ -35,6 +35,15 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android Licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install Android NDK & SDK Platform 35
+        run: sdkmanager "ndk;27.0.12077973" "platforms;android-35" || true
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -71,3 +80,12 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Build Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-failure-logs
+          path: |
+            macless_haystack/build/app/outputs/logs/
+
