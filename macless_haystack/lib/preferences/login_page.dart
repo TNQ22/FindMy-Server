@@ -516,9 +516,7 @@ class _LoginPageState extends State<LoginPage> {
           if (s.endsWith('/')) s = s.substring(0, s.length - 1);
           await Settings.setValue<String>(endpointUrl, s);
           effectiveBaseUrl = s;
-          setState(() {
-            _baseUrl = s;
-          });
+          if (mounted) setState(() {});
         }
         if (map['token'] != null && map['token'].toString().trim().isNotEmpty) {
           tokenToLogin = map['token'].toString().trim();
