@@ -56,11 +56,12 @@ jobs:
 
       - name: Build Release APK
         working-directory: ./macless_haystack
-        run: flutter build apk --release --no-tree-shake-icons 2>&1 | tee ../build.log
+        run: flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
       - name: Rename APK
         run: |
-          APK_PATH=$(find . -name "*.apk" | grep -i "release" | head -n 1)
+          find . -name "*.apk"
+          APK_PATH=$(find . -name "*release*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
             APK_PATH=$(find . -name "*.apk" | head -n 1)
           fi
@@ -92,5 +93,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-failure-logs
-          path: build.log
+          path: |
+            macless_haystack/build/
+          if-no-files-found: ignore
 
