@@ -29,10 +29,16 @@ class _TagRadarDialogState extends State<TagRadarDialog>
   late AnimationController _radarAnimController;
 
   RadarScanResult? _latestResult;
+  double? _smoothedRssi;
+  DateTime? _lastPacketTime;
+  bool _isSignalLost = false;
+
   bool _isScanning = false;
   bool _hapticEnabled = true;
   String _statusMessage = 'Sẵn sàng quét sóng...';
-  Timer? _staleTimer;
+
+  Timer? _freshnessTimer;
+  Timer? _hapticTimer;
 
   @override
   void initState() {
@@ -54,7 +60,8 @@ class _TagRadarDialogState extends State<TagRadarDialog>
 
   @override
   void dispose() {
-    _staleTimer?.cancel();
+    _cancelHaptic();
+    _freshnessTimer?.cancel();
     _subscription?.cancel();
     _radarAnimController.dispose();
     _radarService.dispose();
@@ -64,6 +71,166 @@ class _TagRadarDialogState extends State<TagRadarDialog>
     super.dispose();
   }
 
+  /// Distance tier helper for haptic scheduling and display.
+  /// 0: < 1m (dưới 1 mét)
+  /// 1: 1 - 3m
+  /// 2: 3 - 7m
+  /// 3: > 7m
+  int _getDistanceTier(double? rssi) {
+    if (rssi == null) return -1;
+    if (rssi >= -52) return 0;
+    if (rssi >= -65) return 1;
+    if (rssi >= -80) return 2;
+    return 3;
+  }
+
+  /// Current smoothed or raw RSSI integer.
+  int? get _currentRssi => _smoothedRssi?.round() ?? _latestResult?.rssi;
+
+  /// Approximate signal strength percentage from 0% to 100%.
+  double get _signalPercentage {
+    if (_isSignalLost || _currentRssi == null) return 0.0;
+    final r = _currentRssi!;
+    if (r <= -100) return 5.0;
+    if (r >= -35) return 100.0;
+    return ((r + 100) / 65.0 * 100.0).clamp(5.0, 100.0);
+  }
+
+  /// Human-readable proximity label reflecting distance bands.
+  String get _proximityLabel {
+    if (_isSignalLost) return 'Mất tín hiệu (Ngoài vùng quét)';
+    final r = _currentRssi;
+    if (r == null) return 'Đang dò tìm...';
+    if (r >= -52) {
+      return 'Rất gần (dưới 1 mét)';
+    } else if (r >= -65) {
+      return 'Đang ở gần (1 - 3 mét)';
+    } else if (r >= -80) {
+      return 'Đang đến gần (3 - 7 mét)';
+    } else if (r >= -90) {
+      return 'Ở xa (7 - 15 mét)';
+    } else {
+      return 'Tín hiệu rất yếu (> 15 mét)';
+    }
+  }
+
+  /// Color corresponding to proximity level.
+  Color get _proximityColor {
+    if (_isSignalLost) return Colors.orange;
+    final r = _currentRssi;
+    if (r == null) return widget.accessory.color;
+    if (r >= -52) {
+      return Colors.greenAccent.shade700;
+    } else if (r >= -65) {
+      return Colors.lightGreen;
+    } else if (r >= -80) {
+      return Colors.amber;
+    } else if (r >= -90) {
+      return Colors.orangeAccent;
+    } else {
+      return Colors.redAccent;
+    }
+  }
+
+  /// Label for haptic status in footer.
+  String get _hapticStatusLabel {
+    if (!_hapticEnabled) return 'Rung: Tắt';
+    if (_isSignalLost) return 'Rung: Mất sóng';
+    final r = _currentRssi;
+    if (r == null) return 'Rung: Bật';
+    if (r >= -52) return 'Rung: Liên tục (<1m)';
+    if (r >= -65) return 'Rung: Nhịp đều (1-3m)';
+    if (r >= -80) return 'Rung: Xung thưa (3-7m)';
+    return 'Rung: Ngoài vùng (>7m)';
+  }
+
+  void _cancelHaptic() {
+    _hapticTimer?.cancel();
+    _hapticTimer = null;
+  }
+
+  /// Schedules smooth periodic haptic feedback pulses based on current distance.
+  /// - Under 1m (RSSI >= -52): continuous/rapid pulses (180ms interval, heavy impact)
+  /// - 1 - 3m (-65 <= RSSI < -52): rhythmic pulse (550ms interval, medium impact)
+  /// - 3 - 7m (-80 <= RSSI < -65): sparse long pulse (1350ms interval, light impact)
+  /// - > 7m or signal lost: stopped
+  void _scheduleNextHapticPulse({bool immediateFirst = false}) {
+    _cancelHaptic();
+
+    if (!_hapticEnabled || !_isScanning || _isSignalLost || _smoothedRssi == null) {
+      return;
+    }
+
+    final double rssi = _smoothedRssi!;
+    if (rssi < -80) {
+      // Out of range (> 7m) -> silent
+      return;
+    }
+
+    final Duration delay;
+    final VoidCallback feedbackAction;
+
+    if (rssi >= -52) {
+      // Dưới 1 mét: Rung liên tục / nhịp dồn dập
+      delay = const Duration(milliseconds: 180);
+      feedbackAction = () => HapticFeedback.heavyImpact();
+    } else if (rssi >= -65) {
+      // 1 - 3 mét: Rung nhịp đều đặn (nhịp tim)
+      delay = const Duration(milliseconds: 550);
+      feedbackAction = () => HapticFeedback.mediumImpact();
+    } else {
+      // 3 - 7 mét: Xung ngắt quãng lâu hơn để dễ phân biệt
+      delay = const Duration(milliseconds: 1350);
+      feedbackAction = () => HapticFeedback.lightImpact();
+    }
+
+    if (immediateFirst) {
+      try {
+        feedbackAction();
+      } catch (_) {}
+    }
+
+    _hapticTimer = Timer(delay, () {
+      if (!mounted || !_hapticEnabled || !_isScanning || _isSignalLost) {
+        return;
+      }
+      try {
+        feedbackAction();
+      } catch (_) {}
+      _scheduleNextHapticPulse(immediateFirst: false);
+    });
+  }
+
+  /// Ticker running every 1 second to detect signal drop and refresh freshness.
+  void _startFreshnessTimer() {
+    _freshnessTimer?.cancel();
+    _freshnessTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || !_isScanning) return;
+
+      if (_lastPacketTime != null) {
+        final secondsAgo =
+            DateTime.now().difference(_lastPacketTime!).inSeconds;
+
+        // If no packet received for >= 7 seconds, mark as signal lost
+        if (secondsAgo >= 7) {
+          if (!_isSignalLost) {
+            setState(() {
+              _isSignalLost = true;
+              _statusMessage = 'Mất tín hiệu (Ngoài vùng quét)...';
+            });
+            _cancelHaptic();
+          } else {
+            // Refresh "last seen Xs ago" counter
+            setState(() {});
+          }
+        } else {
+          // Still in fresh window, refresh UI seconds counter
+          setState(() {});
+        }
+      }
+    });
+  }
+
   Future<void> _startRadar() async {
     try {
       await WakelockPlus.enable();
@@ -71,39 +238,41 @@ class _TagRadarDialogState extends State<TagRadarDialog>
 
     setState(() {
       _isScanning = true;
+      _isSignalLost = false;
       _statusMessage = 'Đang dò sóng Bluetooth của tag...';
     });
 
     _radarAnimController.repeat();
+    _startFreshnessTimer();
 
     _subscription?.cancel();
     _subscription = _radarService.scanStream.listen((result) {
       if (!mounted) return;
 
-      if (_hapticEnabled) {
-        if (result.rssi >= -60) {
-          HapticFeedback.heavyImpact();
-        } else if (result.rssi >= -75) {
-          HapticFeedback.mediumImpact();
-        } else {
-          HapticFeedback.selectionClick();
-        }
+      final now = DateTime.now();
+      _lastPacketTime = now;
+
+      final wasLost = _isSignalLost;
+      final oldTier = _getDistanceTier(_smoothedRssi);
+
+      if (wasLost || _smoothedRssi == null) {
+        _smoothedRssi = result.rssi.toDouble();
+      } else {
+        // Exponential moving average (EMA) to prevent RSSI jitter
+        _smoothedRssi = (_smoothedRssi! * 0.6) + (result.rssi * 0.4);
       }
+
+      _isSignalLost = false;
 
       setState(() {
         _latestResult = result;
         _statusMessage = 'Đã bắt được tín hiệu!';
       });
 
-      // Reset stale timer: if no packet received within 10 seconds, warn user
-      _staleTimer?.cancel();
-      _staleTimer = Timer(const Duration(seconds: 10), () {
-        if (mounted && _isScanning) {
-          setState(() {
-            _statusMessage = 'Đang chờ gói tin mới từ tag...';
-          });
-        }
-      });
+      final newTier = _getDistanceTier(_smoothedRssi);
+      if (wasLost || _hapticTimer == null || oldTier != newTier) {
+        _scheduleNextHapticPulse(immediateFirst: wasLost || _hapticTimer == null);
+      }
     });
 
     final success = await _radarService.startScanning();
@@ -117,12 +286,16 @@ class _TagRadarDialogState extends State<TagRadarDialog>
             'Không thể khởi động Bluetooth. Vui lòng kiểm tra quyền và bật Bluetooth trên máy.';
       });
       _radarAnimController.stop();
+      _cancelHaptic();
+      _freshnessTimer?.cancel();
     }
   }
 
   Future<void> _stopRadar() async {
     await _radarService.stopScanning();
-    _staleTimer?.cancel();
+    _cancelHaptic();
+    _freshnessTimer?.cancel();
+    _freshnessTimer = null;
     try {
       await WakelockPlus.disable();
     } catch (_) {}
@@ -141,6 +314,12 @@ class _TagRadarDialogState extends State<TagRadarDialog>
     final isDark = theme.brightness == Brightness.dark;
     final tagColor = widget.accessory.color;
     final iconData = widget.accessory.icon;
+
+    final secondsAgo = _lastPacketTime != null
+        ? DateTime.now().difference(_lastPacketTime!).inSeconds
+        : null;
+
+    final activeColor = _isSignalLost ? Colors.orange : _proximityColor;
 
     return Dialog(
       backgroundColor: isDark ? const Color(0xFF1E1E2C) : Colors.white,
@@ -234,22 +413,29 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.teal.shade700,
                                   foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 10, horizontal: 16),
                                 ),
-                                icon: const Icon(Icons.android, size: 19, color: Colors.greenAccent),
+                                icon: const Icon(Icons.android,
+                                    size: 19, color: Colors.greenAccent),
                                 label: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       'Tải ứng dụng Android (APK)',
-                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                     SizedBox(width: 8),
-                                    Icon(Icons.qr_code, size: 16, color: Colors.tealAccent),
+                                    Icon(Icons.qr_code,
+                                        size: 16, color: Colors.tealAccent),
                                   ],
                                 ),
-                                onPressed: () => AppDownloadDialog.show(context),
+                                onPressed: () =>
+                                    AppDownloadDialog.show(context),
                               ),
                             ),
                           ],
@@ -274,9 +460,9 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                                 painter: _RadarWavePainter(
                                   animationValue: _radarAnimController.value,
                                   isScanning: _isScanning,
-                                  signalPercent:
-                                      _latestResult?.signalPercentage ?? 0,
-                                  radarColor: _latestResult?.proximityColor ?? tagColor,
+                                  signalPercent: _signalPercentage,
+                                  radarColor: activeColor,
+                                  isSignalLost: _isSignalLost,
                                 ),
                               );
                             },
@@ -288,20 +474,49 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                             height: 80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: tagColor,
+                              color: _isSignalLost
+                                  ? (isDark
+                                      ? Colors.grey.shade800
+                                      : Colors.grey.shade400)
+                                  : tagColor,
                               boxShadow: [
                                 BoxShadow(
-                                  color: (_latestResult?.proximityColor ?? tagColor)
-                                      .withValues(alpha: 0.4),
-                                  blurRadius: 18,
-                                  spreadRadius: 4,
+                                  color: (_isSignalLost
+                                          ? Colors.orange.withValues(alpha: 0.25)
+                                          : activeColor.withValues(alpha: 0.4)),
+                                  blurRadius: _isSignalLost ? 8 : 18,
+                                  spreadRadius: _isSignalLost ? 1 : 4,
                                 ),
                               ],
                             ),
-                            child: Icon(
-                              iconData,
-                              color: Colors.white,
-                              size: 40,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Icon(
+                                  iconData,
+                                  color: _isSignalLost
+                                      ? Colors.white70
+                                      : Colors.white,
+                                  size: 40,
+                                ),
+                                if (_isSignalLost)
+                                  Positioned(
+                                    bottom: 12,
+                                    right: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.deepOrange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.warning_amber_rounded,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -311,22 +526,23 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                     const SizedBox(height: 16),
 
                     // ── Signal Gauge / RSSI Value ─────────────────────────
-                    if (_latestResult != null) ...[
+                    if (_latestResult != null && !_isSignalLost) ...[
+                      // Active live signal state
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.sensors,
-                            color: _latestResult!.proximityColor,
+                            color: activeColor,
                             size: 24,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '${_latestResult!.rssi} dBm',
+                            '${_currentRssi} dBm',
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.bold,
-                              color: _latestResult!.proximityColor,
+                              color: activeColor,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -334,18 +550,16 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: _latestResult!.proximityColor
-                                  .withValues(alpha: 0.15),
+                              color: activeColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: _latestResult!.proximityColor),
+                              border: Border.all(color: activeColor),
                             ),
                             child: Text(
-                              '${_latestResult!.signalPercentage.round()}%',
+                              '${_signalPercentage.round()}%',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: _latestResult!.proximityColor,
+                                color: activeColor,
                               ),
                             ),
                           ),
@@ -353,11 +567,96 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _latestResult!.proximityLabel,
+                        _proximityLabel,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: _latestResult!.proximityColor,
+                          color: activeColor,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Freshness indicator
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: secondsAgo != null && secondsAgo <= 3
+                                  ? Colors.greenAccent
+                                  : Colors.amberAccent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            secondsAgo == null || secondsAgo <= 1
+                                ? 'Tín hiệu thời gian thực'
+                                : 'Cập nhật ${secondsAgo}s trước',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (_latestResult != null && _isSignalLost) ...[
+                      // Lost signal state (clearly communicates out-of-range)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.sensors_off,
+                            color: Colors.orangeAccent,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '-- dBm',
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orangeAccent),
+                            ),
+                            child: const Text(
+                              'Mất sóng',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orangeAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Mất tín hiệu (Ngoài vùng quét)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orangeAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        secondsAgo != null
+                            ? 'Lần cuối bắt được: ${secondsAgo}s trước (${_latestResult!.rssi} dBm)'
+                            : 'Không nhận được gói tin mới từ tag',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white60 : Colors.black54,
                         ),
                       ),
                     ] else ...[
@@ -386,9 +685,41 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                         ),
                         child: Column(
                           children: [
+                            // Status row
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.wifi_tethering,
+                                          size: 18, color: Colors.teal),
+                                      SizedBox(width: 8),
+                                      Text('Trạng thái kết nối:',
+                                          style: TextStyle(fontSize: 13)),
+                                    ],
+                                  ),
+                                  Text(
+                                    _isSignalLost
+                                        ? 'Mất sóng (Đang tìm lại...)'
+                                        : 'Đang kết nối trực tiếp',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isSignalLost
+                                          ? Colors.orangeAccent
+                                          : Colors.greenAccent.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             if (_latestResult!.hardwareBatteryStatus != null)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
                                 child: Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -414,7 +745,8 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                               ),
                             if (_latestResult!.deviceMac != null)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
                                 child: Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -464,13 +796,18 @@ class _TagRadarDialogState extends State<TagRadarDialog>
               ),
               child: Row(
                 children: [
-                  // Haptic feedback toggle
+                  // Haptic feedback toggle & current mode display
                   InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
                       setState(() {
                         _hapticEnabled = !_hapticEnabled;
                       });
+                      if (!_hapticEnabled) {
+                        _cancelHaptic();
+                      } else {
+                        _scheduleNextHapticPulse(immediateFirst: true);
+                      }
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -483,12 +820,14 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                                 : Icons.phonelink_erase,
                             size: 20,
                             color: _hapticEnabled
-                                ? Colors.tealAccent.shade400
+                                ? (_isSignalLost
+                                    ? Colors.orangeAccent
+                                    : Colors.tealAccent.shade400)
                                 : Colors.grey,
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'Rung',
+                            _hapticStatusLabel,
                             style: TextStyle(
                               fontSize: 13,
                               color: _hapticEnabled
@@ -515,8 +854,9 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _isScanning ? Colors.red.shade700 : Colors.teal.shade700,
+                      backgroundColor: _isScanning
+                          ? Colors.red.shade700
+                          : Colors.teal.shade700,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -547,12 +887,14 @@ class _RadarWavePainter extends CustomPainter {
   final bool isScanning;
   final double signalPercent;
   final Color radarColor;
+  final bool isSignalLost;
 
   _RadarWavePainter({
     required this.animationValue,
     required this.isScanning,
     required this.signalPercent,
     required this.radarColor,
+    this.isSignalLost = false,
   });
 
   @override
@@ -561,8 +903,12 @@ class _RadarWavePainter extends CustomPainter {
     final maxRadius = size.width / 2;
 
     // Background concentric circles
+    final gridColor = isSignalLost
+        ? Colors.grey.withValues(alpha: 0.15)
+        : radarColor.withValues(alpha: 0.12);
+
     final gridPaint = Paint()
-      ..color = radarColor.withValues(alpha: 0.12)
+      ..color = gridColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -584,15 +930,20 @@ class _RadarWavePainter extends CustomPainter {
 
     // Animated pulsing wave rings when scanning
     if (isScanning) {
+      final activeColor = isSignalLost
+          ? Colors.orangeAccent.withValues(alpha: 0.4)
+          : radarColor;
+
       for (int i = 0; i < 3; i++) {
         final waveVal = (animationValue + (i * 0.33)) % 1.0;
         final waveRadius = 40.0 + waveVal * (maxRadius - 40.0);
-        final waveAlpha = ((1.0 - waveVal) * 0.6).clamp(0.0, 1.0);
+        final waveAlpha =
+            ((1.0 - waveVal) * (isSignalLost ? 0.3 : 0.6)).clamp(0.0, 1.0);
 
         final wavePaint = Paint()
-          ..color = radarColor.withValues(alpha: waveAlpha)
+          ..color = activeColor.withValues(alpha: waveAlpha)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0;
+          ..strokeWidth = isSignalLost ? 1.5 : 2.0;
 
         canvas.drawCircle(center, waveRadius, wavePaint);
       }
@@ -604,6 +955,7 @@ class _RadarWavePainter extends CustomPainter {
     return oldDelegate.animationValue != animationValue ||
         oldDelegate.isScanning != isScanning ||
         oldDelegate.signalPercent != signalPercent ||
-        oldDelegate.radarColor != radarColor;
+        oldDelegate.radarColor != radarColor ||
+        oldDelegate.isSignalLost != isSignalLost;
   }
 }
