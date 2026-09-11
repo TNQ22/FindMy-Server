@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Release APK
         working-directory: ./macless_haystack
-        run: flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
+        run: flutter build apk --release --no-tree-shake-icons --verbose
 
       - name: Rename APK
         run: |
