@@ -56,7 +56,7 @@ jobs:
 
       - name: Build Release APK
         working-directory: ./macless_haystack
-        run: flutter build apk --release --no-tree-shake-icons --verbose
+        run: flutter build apk --release --no-tree-shake-icons 2>&1 | tee ../build.log
 
       - name: Rename APK
         run: |
@@ -86,6 +86,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-failure-logs
-          path: |
-            macless_haystack/build/app/outputs/logs/
+          path: build.log
 

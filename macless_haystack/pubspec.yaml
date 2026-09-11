@@ -74,6 +74,9 @@ dependencies:
   # Barcode / QR Scanner
   mobile_scanner: ^6.0.4
 
+  # Keep screen awake during Radar BLE scan
+  wakelock_plus: ^1.2.10
+
 dev_dependencies:
 
   dependency_validator: ^5.0.3

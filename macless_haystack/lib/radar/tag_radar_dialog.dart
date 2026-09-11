@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../accessory/accessory_icon_model.dart';
 import '../accessory/accessory_model.dart';
@@ -56,10 +57,17 @@ class _TagRadarDialogState extends State<TagRadarDialog>
     _subscription?.cancel();
     _radarAnimController.dispose();
     _radarService.dispose();
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
     super.dispose();
   }
 
   Future<void> _startRadar() async {
+    try {
+      await WakelockPlus.enable();
+    } catch (_) {}
+
     setState(() {
       _isScanning = true;
       _statusMessage = 'Đang dò sóng Bluetooth của tag...';
@@ -99,6 +107,9 @@ class _TagRadarDialogState extends State<TagRadarDialog>
 
     final success = await _radarService.startScanning();
     if (!success && mounted) {
+      try {
+        await WakelockPlus.disable();
+      } catch (_) {}
       setState(() {
         _isScanning = false;
         _statusMessage =
@@ -111,6 +122,9 @@ class _TagRadarDialogState extends State<TagRadarDialog>
   Future<void> _stopRadar() async {
     await _radarService.stopScanning();
     _staleTimer?.cancel();
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
     if (mounted) {
       setState(() {
         _isScanning = false;
