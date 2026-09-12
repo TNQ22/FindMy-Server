@@ -1,24 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:universal_html/html.dart' as html;
 
 /// Dialog that displays Android APK download QR Code, direct link, and GitHub release page.
-class AppDownloadDialog extends StatelessWidget {
+class AppDownloadDialog extends StatefulWidget {
   const AppDownloadDialog({super.key});
-
-  /// Permanent direct link that GitHub automatically redirects to the latest release APK file.
-  static const String directApkUrl =
-      'https://github.com/TNQ22/FindMy-Server/releases/latest/download/FindMy-Server.apk';
-
-  /// GitHub releases web page (for viewing changelog, older versions, etc.)
-  static const String githubReleasesUrl =
-      'https://github.com/TNQ22/FindMy-Server/releases/latest';
-
-  /// QR code pointing directly to the APK download stream
-  static final String qrImageUrl =
-      'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${Uri.encodeComponent(directApkUrl)}';
 
   static Future<void> show(BuildContext context) {
     return showDialog(
@@ -26,6 +16,75 @@ class AppDownloadDialog extends StatelessWidget {
       builder: (ctx) => const AppDownloadDialog(),
     );
   }
+
+  @override
+  State<AppDownloadDialog> createState() => _AppDownloadDialogState();
+}
+
+class _AppDownloadDialogState extends State<AppDownloadDialog> {
+  static const String fallbackApkUrl =
+      'https://github.com/TNQ22/FindMy-Server/releases/download/v2.1.5/FindMy-Server-v2.1.5.apk';
+  static const String githubReleasesUrl =
+      'https://github.com/TNQ22/FindMy-Server/releases/latest';
+
+  String _directApkUrl = fallbackApkUrl;
+  String _apkFileName = 'FindMy-Server-v2.1.5.apk';
+  String? _apkSizeStr = '71.6 MB';
+  String? _versionTag = 'v2.1.5';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLatestReleaseInfo();
+  }
+
+  /// Automatically queries GitHub API for the latest release asset with exact version name.
+  Future<void> _fetchLatestReleaseInfo() async {
+    try {
+      final res = await http.get(
+        Uri.parse('https://api.github.com/repos/TNQ22/FindMy-Server/releases/latest'),
+        headers: {'Accept': 'application/vnd.github.v3+json'},
+      ).timeout(const Duration(seconds: 4));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final tag = data['tag_name'] as String? ?? '';
+        final assets = data['assets'] as List<dynamic>? ?? [];
+
+        // Prioritize APK with version name (e.g. FindMy-Server-v2.1.5.apk)
+        dynamic targetAsset;
+        for (final a in assets) {
+          final name = a['name'] as String? ?? '';
+          if (name.endsWith('.apk') && name.contains('v')) {
+            targetAsset = a;
+            break;
+          }
+        }
+        targetAsset ??= assets.firstWhere(
+          (a) => (a['name'] as String? ?? '').endsWith('.apk'),
+          orElse: () => null,
+        );
+
+        if (targetAsset != null && mounted) {
+          final downloadUrl = targetAsset['browser_download_url'] as String;
+          final fileName = targetAsset['name'] as String;
+          final sizeBytes = targetAsset['size'] as int? ?? 0;
+          final sizeMb = (sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+
+          setState(() {
+            _directApkUrl = downloadUrl;
+            _apkFileName = fileName;
+            _apkSizeStr = '$sizeMb MB';
+            _versionTag = tag;
+          });
+          return;
+        }
+      }
+    } catch (_) {}
+  }
+
+  String get _qrImageUrl =>
+      'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${Uri.encodeComponent(_directApkUrl)}';
 
   Future<void> _openUrl(String url) async {
     if (kIsWeb) {
@@ -59,10 +118,25 @@ class AppDownloadDialog extends StatelessWidget {
             child: const Icon(Icons.android, color: Colors.green, size: 24),
           ),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Tải ứng dụng Android (APK)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Tải ứng dụng Android (APK)',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+                if (_versionTag != null)
+                  Text(
+                    'Phiên bản mới nhất: $_versionTag',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.teal,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -94,7 +168,7 @@ class AppDownloadDialog extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(
-                        qrImageUrl,
+                        _qrImageUrl,
                         width: 190,
                         height: 190,
                         fit: BoxFit.contain,
@@ -121,10 +195,10 @@ class AppDownloadDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '📷 Quét bằng camera điện thoại để tải trực tiếp APK',
+                    Text(
+                      '📷 Quét bằng camera để tải trực tiếp $_apkFileName',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.teal,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -149,10 +223,10 @@ class AppDownloadDialog extends StatelessWidget {
                   children: [
                     const Icon(Icons.file_download, size: 18, color: Colors.teal),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        directApkUrl,
-                        style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                        _directApkUrl,
+                        style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -161,7 +235,7 @@ class AppDownloadDialog extends StatelessWidget {
                       tooltip: 'Sao chép liên kết tải APK trực tiếp',
                       onPressed: () async {
                         await Clipboard.setData(
-                          const ClipboardData(text: directApkUrl),
+                          ClipboardData(text: _directApkUrl),
                         );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -192,11 +266,12 @@ class AppDownloadDialog extends StatelessWidget {
                     ),
                   ),
                   icon: const Icon(Icons.download, size: 20),
-                  label: const Text(
-                    'Tải trực tiếp APK (Bản mới nhất)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  label: Text(
+                    'Tải $_apkFileName${_apkSizeStr != null ? ' ($_apkSizeStr)' : ''}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  onPressed: () => _openUrl(directApkUrl),
+                  onPressed: () => _openUrl(_directApkUrl),
                 ),
               ),
               const SizedBox(height: 8),
