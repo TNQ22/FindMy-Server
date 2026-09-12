@@ -63,7 +63,7 @@ class _TagRadarDialogState extends State<TagRadarDialog>
 
   @override
   void dispose() {
-    _cancelHaptic();
+    _stopAllHaptics();
     _freshnessTimer?.cancel();
     _subscription?.cancel();
     _radarAnimController.dispose();
@@ -135,25 +135,13 @@ class _TagRadarDialogState extends State<TagRadarDialog>
     }
   }
 
-  /// Label for haptic status in footer.
-  String get _hapticStatusLabel {
-    if (!_hapticEnabled) return 'Rung: Tắt';
-    if (_isSignalLost) return 'Rung: Mất sóng';
-    if (_discoveryAlertUntil != null &&
-        DateTime.now().isBefore(_discoveryAlertUntil!)) {
-      return 'Rung: Đã bắt được!';
-    }
-    final r = _currentRssi;
-    if (r == null) return 'Rung: Bật';
-    if (r >= -52) return 'Rung: Liên tục (<1m)';
-    if (r >= -65) return 'Rung: Nhịp đều (1-3m)';
-    if (r >= -80) return 'Rung: Xung thưa (3-7m)';
-    return 'Rung: Ngoài vùng (>7m)';
-  }
-
-  void _cancelHaptic() {
+  void _cancelHapticTimer() {
     _hapticTimer?.cancel();
     _hapticTimer = null;
+  }
+
+  void _stopAllHaptics() {
+    _cancelHapticTimer();
     RadarVibrator.cancel();
   }
 
@@ -162,8 +150,8 @@ class _TagRadarDialogState extends State<TagRadarDialog>
   /// - 1 - 3m (-65 <= RSSI < -52): rhythmic pulse (180ms vib, 520ms rest -> 700ms total)
   /// - 3 - 7m (-80 <= RSSI < -65): sparse long pulse (120ms vib, 1480ms rest -> 1600ms total)
   /// - > 7m or signal lost: stopped
-  void _scheduleNextHapticPulse({bool immediateFirst = false}) {
-    _cancelHaptic();
+  void _scheduleNextHapticPulse() {
+    _cancelHapticTimer();
 
     if (!_hapticEnabled || !_isScanning || _isSignalLost || _smoothedRssi == null) {
       return;
@@ -183,29 +171,28 @@ class _TagRadarDialogState extends State<TagRadarDialog>
     final int vibDuration;
 
     if (rssi >= -52) {
-      // Dưới 1 mét: Rung liên tục / nhịp dồn dập (260ms motor pulse)
+      // Dưới 1 mét: Rung liên tục / nhịp dồn dập (260ms motor pulse, 80ms rest)
       delay = const Duration(milliseconds: 340);
       vibDuration = 260;
     } else if (rssi >= -65) {
-      // 1 - 3 mét: Rung nhịp đều đặn (180ms heartbeat pulse)
+      // 1 - 3 mét: Rung nhịp đều đặn (180ms heartbeat pulse, 520ms rest)
       delay = const Duration(milliseconds: 700);
       vibDuration = 180;
     } else {
-      // 3 - 7 mét: Xung ngắt quãng lâu hơn để dễ phân biệt (120ms pulse)
+      // 3 - 7 mét: Xung ngắt quãng lâu hơn để dễ phân biệt (120ms pulse, 1480ms rest)
       delay = const Duration(milliseconds: 1600);
       vibDuration = 120;
     }
 
-    if (immediateFirst) {
-      RadarVibrator.vibrate(vibDuration);
-    }
+    // Trigger hardware vibration without premature cancellation
+    RadarVibrator.vibrate(vibDuration);
 
+    // Schedule next cycle
     _hapticTimer = Timer(delay, () {
       if (!mounted || !_hapticEnabled || !_isScanning || _isSignalLost) {
         return;
       }
-      RadarVibrator.vibrate(vibDuration);
-      _scheduleNextHapticPulse(immediateFirst: false);
+      _scheduleNextHapticPulse();
     });
   }
 
@@ -227,7 +214,7 @@ class _TagRadarDialogState extends State<TagRadarDialog>
               _isSignalLost = true;
               _statusMessage = 'Mất tín hiệu (Ngoài vùng quét)...';
             });
-            _cancelHaptic();
+            _stopAllHaptics();
             // Automatically kick the BLE scanner to wake up hardware
             _radarService.restartScanning();
           } else {
@@ -286,15 +273,15 @@ class _TagRadarDialogState extends State<TagRadarDialog>
       if (_hapticEnabled) {
         if (isFirstDiscovery) {
           // Discovery alert requested: 1s long vibration followed by 3 rapid beats
+          _cancelHapticTimer();
           RadarVibrator.vibrateDiscovery();
           _discoveryAlertUntil =
               DateTime.now().add(const Duration(milliseconds: 1800));
-          _cancelHaptic();
 
           // After discovery alert finishes, resume distance-based continuous/rhythmic loop
           _hapticTimer = Timer(const Duration(milliseconds: 1850), () {
             if (mounted && _hapticEnabled && _isScanning && !_isSignalLost) {
-              _scheduleNextHapticPulse(immediateFirst: true);
+              _scheduleNextHapticPulse();
             }
           });
         } else {
@@ -303,7 +290,7 @@ class _TagRadarDialogState extends State<TagRadarDialog>
           if (!isAlerting) {
             final newTier = _getDistanceTier(_smoothedRssi);
             if (_hapticTimer == null || oldTier != newTier) {
-              _scheduleNextHapticPulse(immediateFirst: _hapticTimer == null);
+              _scheduleNextHapticPulse();
             }
           }
         }
@@ -321,14 +308,14 @@ class _TagRadarDialogState extends State<TagRadarDialog>
             'Không thể khởi động Bluetooth. Vui lòng kiểm tra quyền và bật Bluetooth trên máy.';
       });
       _radarAnimController.stop();
-      _cancelHaptic();
+      _stopAllHaptics();
       _freshnessTimer?.cancel();
     }
   }
 
   Future<void> _stopRadar() async {
     await _radarService.stopScanning();
-    _cancelHaptic();
+    _stopAllHaptics();
     _freshnessTimer?.cancel();
     _freshnessTimer = null;
     try {
@@ -833,7 +820,7 @@ class _TagRadarDialogState extends State<TagRadarDialog>
               ),
               child: Row(
                 children: [
-                  // Haptic feedback toggle & current mode display
+                  // Haptic feedback toggle (clean and compact: icon + 'Rung')
                   InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
@@ -841,15 +828,16 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                         _hapticEnabled = !_hapticEnabled;
                       });
                       if (!_hapticEnabled) {
-                        _cancelHaptic();
+                        _stopAllHaptics();
                       } else {
-                        _scheduleNextHapticPulse(immediateFirst: true);
+                        _scheduleNextHapticPulse();
                       }
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 6),
+                          horizontal: 10, vertical: 8),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             _hapticEnabled
@@ -857,16 +845,15 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                                 : Icons.phonelink_erase,
                             size: 20,
                             color: _hapticEnabled
-                                ? (_isSignalLost
-                                    ? Colors.orangeAccent
-                                    : Colors.tealAccent.shade400)
+                                ? Colors.tealAccent.shade400
                                 : Colors.grey,
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _hapticStatusLabel,
+                            'Rung',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: _hapticEnabled
                                   ? (isDark ? Colors.white : Colors.black)
                                   : Colors.grey,
