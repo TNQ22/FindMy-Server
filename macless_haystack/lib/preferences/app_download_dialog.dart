@@ -8,12 +8,17 @@ import 'package:universal_html/html.dart' as html;
 class AppDownloadDialog extends StatelessWidget {
   const AppDownloadDialog({super.key});
 
+  /// Permanent direct link that GitHub automatically redirects to the latest release APK file.
+  static const String directApkUrl =
+      'https://github.com/TNQ22/FindMy-Server/releases/latest/download/FindMy-Server.apk';
+
+  /// GitHub releases web page (for viewing changelog, older versions, etc.)
   static const String githubReleasesUrl =
       'https://github.com/TNQ22/FindMy-Server/releases/latest';
-  static const String directApkUrl =
-      'https://github.com/TNQ22/FindMy-Server/releases/download/v2.1.5/FindMy-Server-v2.1.5.apk';
-  static const String qrImageUrl =
-      'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=4&data=https%3A%2F%2Fgithub.com%2FTNQ22%2FFindMy-Server%2Freleases%2Flatest';
+
+  /// QR code pointing directly to the APK download stream
+  static final String qrImageUrl =
+      'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${Uri.encodeComponent(directApkUrl)}';
 
   static Future<void> show(BuildContext context) {
     return showDialog(
@@ -48,7 +53,7 @@ class AppDownloadDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.15),
+              color: Colors.green.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.android, color: Colors.green, size: 24),
@@ -56,7 +61,7 @@ class AppDownloadDialog extends StatelessWidget {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              'Tải ứng dụng Android',
+              'Tải ứng dụng Android (APK)',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
@@ -76,7 +81,7 @@ class AppDownloadDialog extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withValues(alpha: 0.08),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -117,7 +122,8 @@ class AppDownloadDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      '📷 Quét bằng camera điện thoại để tải APK',
+                      '📷 Quét bằng camera điện thoại để tải trực tiếp APK',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.teal,
                         fontWeight: FontWeight.bold,
@@ -129,7 +135,7 @@ class AppDownloadDialog extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Link and copy row
+              // Direct link and copy row
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -141,26 +147,26 @@ class AppDownloadDialog extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.link, size: 18, color: Colors.teal),
+                    const Icon(Icons.file_download, size: 18, color: Colors.teal),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        githubReleasesUrl,
+                        directApkUrl,
                         style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.copy, size: 18),
-                      tooltip: 'Sao chép liên kết',
+                      tooltip: 'Sao chép liên kết tải APK trực tiếp',
                       onPressed: () async {
                         await Clipboard.setData(
-                          const ClipboardData(text: githubReleasesUrl),
+                          const ClipboardData(text: directApkUrl),
                         );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Đã sao chép link tải ứng dụng!'),
+                              content: Text('Đã sao chép link tải trực tiếp APK!'),
                               duration: Duration(seconds: 2),
                             ),
                           );
@@ -187,7 +193,7 @@ class AppDownloadDialog extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.download, size: 20),
                   label: const Text(
-                    'Tải file FindMy-Server-v2.1.5.apk',
+                    'Tải trực tiếp APK (Bản mới nhất)',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   onPressed: () => _openUrl(directApkUrl),
