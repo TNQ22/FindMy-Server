@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -7,7 +6,8 @@ class RadarVibrator {
   static const MethodChannel _channel =
       MethodChannel('de.dchristl.headlesshaystack/vibrate');
 
-  static bool get _isAndroid => !kIsWeb && Platform.isAndroid;
+  static bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   /// Vibrates for [durationMs] milliseconds with full hardware motor power.
   static Future<void> vibrate(int durationMs) async {
