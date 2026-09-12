@@ -326,6 +326,14 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
           ),
         ),
         actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.android, size: 18, color: Colors.teal),
+            label: const Text(
+              'Tải App Android (APK)',
+              style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () => AppDownloadDialog.show(context),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Đóng'),
