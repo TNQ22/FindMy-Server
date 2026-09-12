@@ -67,16 +67,13 @@ jobs:
           fi
           echo "Found APK at: $APK_PATH"
           cp "$APK_PATH" ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
-          cp "$APK_PATH" ./FindMy-Server.apk
-          ls -la ./FindMy-Server*.apk
+          ls -la ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FindMy-Server-v${{ steps.get_version.outputs.VERSION }}-apk
-          path: |
-            ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
-            ./FindMy-Server.apk
+          path: ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
 
       - name: Create GitHub Release (if tag or push)
         uses: softprops/action-gh-release@v2
@@ -84,9 +81,7 @@ jobs:
         with:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
           name: Release v${{ steps.get_version.outputs.VERSION }}
-          files: |
-            ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
-            ./FindMy-Server.apk
+          files: ./FindMy-Server-v${{ steps.get_version.outputs.VERSION }}.apk
           draft: false
           prerelease: false
           generate_release_notes: true
