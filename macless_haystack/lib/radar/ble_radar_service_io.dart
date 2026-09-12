@@ -22,9 +22,8 @@ class BleRadarService {
       StreamController<RadarScanResult>.broadcast();
 
   StreamSubscription? _scanSubscription;
-  StreamSubscription? _isScanningSub;
-  Timer? _watchdogTimer;
   bool _isScanning = false;
+  bool _isRestarting = false;
   final List<Uint8List> _targetAdvKeys = [];
   bool _keysLoaded = false;
 
@@ -64,32 +63,33 @@ class BleRadarService {
     _logger.i('BleRadar: Đã tải ${_targetAdvKeys.length} khóa mục tiêu cho "${accessory.name}"');
   }
 
-  /// Cycles/refreshes the BLE scan to prevent Android OS scan throttling or buffer freeze.
-  Future<void> _cycleScan() async {
-    if (!_isScanning) return;
+  /// Safely restarts the BLE scanner if it became dormant or dropped.
+  Future<void> restartScanning() async {
+    if (!_isScanning || _isRestarting) return;
+    _isRestarting = true;
+    _logger.i('BleRadar: Đang làm mới chu kỳ quét BLE...');
     try {
       if (await FlutterBluePlus.isScanning.first) {
         await FlutterBluePlus.stopScan();
       }
-      await Future.delayed(const Duration(milliseconds: 150));
-      if (!_isScanning) return;
-      await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 40),
-        androidUsesFineLocation: true,
-        continuousUpdates: true,
-        androidScanMode: AndroidScanMode.lowLatency,
-      );
-      _logger.d('BleRadar: Scan cycle auto-refreshed (preventing Android OS throttling/hang)');
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (_isScanning) {
+        await FlutterBluePlus.startScan(
+          androidUsesFineLocation: true,
+          continuousUpdates: true,
+          androidScanMode: AndroidScanMode.lowLatency,
+        );
+      }
     } catch (e) {
-      _logger.w('BleRadar: Lỗi auto-refresh scan: $e');
+      _logger.w('BleRadar: Lỗi làm mới quét BLE: $e');
+    } finally {
+      _isRestarting = false;
     }
   }
 
-  /// Manually triggers a scan refresh (e.g. when signal drops).
+  /// Alias for restartScanning.
   Future<void> refreshScan() async {
-    if (_isScanning) {
-      await _cycleScan();
-    }
+    await restartScanning();
   }
 
   /// Starts scanning for nearby BLE advertisements matching this tag.
@@ -136,37 +136,18 @@ class BleRadarService {
         _logger.e('BleRadar scan error: $err');
       });
 
-      // Auto-recover if Android OS kills the scan prematurely
-      await _isScanningSub?.cancel();
-      _isScanningSub = FlutterBluePlus.isScanning.listen((isSc) {
-        if (!isSc && _isScanning) {
-          _logger.i('BleRadar: Scan was stopped by OS, auto-recovering...');
-          _cycleScan();
-        }
-      });
-
-      // Periodic watchdog refresh every 25 seconds:
-      // Flushes BLE hardware buffers and prevents Android power-manager scan throttling
-      _watchdogTimer?.cancel();
-      _watchdogTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-        if (_isScanning) {
-          _cycleScan();
-        }
-      });
-
-      // Start initial BLE scan
+      // Start continuous low-latency BLE scan without premature timeouts
       await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 40),
         androidUsesFineLocation: true,
         continuousUpdates: true,
         androidScanMode: AndroidScanMode.lowLatency,
       );
 
+      _logger.i('BleRadar: Đã bắt đầu quét BLE thành công.');
       return true;
     } catch (e) {
       _logger.e('BleRadar: Lỗi khởi động quét: $e');
       _isScanning = false;
-      _watchdogTimer?.cancel();
       return false;
     }
   }
@@ -249,11 +230,7 @@ class BleRadarService {
   /// Stops BLE scanning.
   Future<void> stopScanning() async {
     _isScanning = false;
-    _watchdogTimer?.cancel();
-    _watchdogTimer = null;
     try {
-      await _isScanningSub?.cancel();
-      _isScanningSub = null;
       await _scanSubscription?.cancel();
       _scanSubscription = null;
       if (await FlutterBluePlus.isScanning.first) {

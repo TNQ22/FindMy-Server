@@ -219,8 +219,9 @@ class _TagRadarDialogState extends State<TagRadarDialog>
         final secondsAgo =
             DateTime.now().difference(_lastPacketTime!).inSeconds;
 
-        // If no packet received for >= 7 seconds, mark as signal lost
-        if (secondsAgo >= 7) {
+        // Tolerant timeout: BLE tags often broadcast every 3 to 8 seconds.
+        // Wait 16s before declaring lost to tolerate dropped packets.
+        if (secondsAgo >= 16) {
           if (!_isSignalLost) {
             setState(() {
               _isSignalLost = true;
@@ -228,16 +229,12 @@ class _TagRadarDialogState extends State<TagRadarDialog>
             });
             _cancelHaptic();
             // Automatically kick the BLE scanner to wake up hardware
-            _radarService.refreshScan();
+            _radarService.restartScanning();
           } else {
-            // Periodically refresh scan every 10s while lost to prevent hardware dormancy
-            if (secondsAgo >= 12 && secondsAgo % 10 == 0) {
-              _radarService.refreshScan();
-            }
             setState(() {});
           }
         } else {
-          // Still in fresh window, refresh UI seconds counter
+          // Still active or in waiting window, refresh UI seconds counter
           setState(() {});
         }
       }
@@ -621,7 +618,7 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: secondsAgo != null && secondsAgo <= 3
+                              color: secondsAgo != null && secondsAgo <= 5
                                   ? Colors.greenAccent
                                   : Colors.amberAccent,
                               shape: BoxShape.circle,
@@ -631,7 +628,9 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                           Text(
                             secondsAgo == null || secondsAgo <= 1
                                 ? 'Tín hiệu thời gian thực'
-                                : 'Cập nhật ${secondsAgo}s trước',
+                                : secondsAgo <= 5
+                                    ? 'Cập nhật ${secondsAgo}s trước'
+                                    : 'Đang đợi gói tin mới (${secondsAgo}s)...',
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white60 : Colors.black54,
@@ -879,6 +878,24 @@ class _TagRadarDialogState extends State<TagRadarDialog>
                   ),
 
                   const Spacer(),
+
+                  // Quick Refresh Button (Làm mới Bluetooth nếu đơ)
+                  if (_isScanning) ...[
+                    IconButton(
+                      tooltip: 'Làm mới bộ quét Bluetooth',
+                      icon: const Icon(Icons.refresh, size: 22),
+                      onPressed: () async {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Đang làm mới bộ quét Bluetooth...'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                        await _radarService.restartScanning();
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                  ],
 
                   // Scan / Stop button
                   ElevatedButton.icon(
