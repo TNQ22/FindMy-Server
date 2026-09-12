@@ -8,6 +8,7 @@ import '../accessory/accessory_icon_model.dart';
 import '../accessory/accessory_model.dart';
 import '../preferences/app_download_dialog.dart';
 import 'ble_radar_service.dart';
+import 'radar_vibrator.dart';
 
 /// Interactive Radar Proximity Dialog for finding a FindMy tag using BLE RSSI.
 class TagRadarDialog extends StatefulWidget {
@@ -32,6 +33,8 @@ class _TagRadarDialogState extends State<TagRadarDialog>
   double? _smoothedRssi;
   DateTime? _lastPacketTime;
   bool _isSignalLost = false;
+  bool _hasDiscoveredOnce = false;
+  DateTime? _discoveryAlertUntil;
 
   bool _isScanning = false;
   bool _hapticEnabled = true;
@@ -136,6 +139,10 @@ class _TagRadarDialogState extends State<TagRadarDialog>
   String get _hapticStatusLabel {
     if (!_hapticEnabled) return 'Rung: Tắt';
     if (_isSignalLost) return 'Rung: Mất sóng';
+    if (_discoveryAlertUntil != null &&
+        DateTime.now().isBefore(_discoveryAlertUntil!)) {
+      return 'Rung: Đã bắt được!';
+    }
     final r = _currentRssi;
     if (r == null) return 'Rung: Bật';
     if (r >= -52) return 'Rung: Liên tục (<1m)';
@@ -147,12 +154,13 @@ class _TagRadarDialogState extends State<TagRadarDialog>
   void _cancelHaptic() {
     _hapticTimer?.cancel();
     _hapticTimer = null;
+    RadarVibrator.cancel();
   }
 
-  /// Schedules smooth periodic haptic feedback pulses based on current distance.
-  /// - Under 1m (RSSI >= -52): continuous/rapid pulses (180ms interval, heavy impact)
-  /// - 1 - 3m (-65 <= RSSI < -52): rhythmic pulse (550ms interval, medium impact)
-  /// - 3 - 7m (-80 <= RSSI < -65): sparse long pulse (1350ms interval, light impact)
+  /// Schedules smooth periodic hardware vibration pulses based on current distance:
+  /// - Under 1m (RSSI >= -52): continuous rapid pulses (260ms vib, 80ms rest -> 340ms total)
+  /// - 1 - 3m (-65 <= RSSI < -52): rhythmic pulse (180ms vib, 520ms rest -> 700ms total)
+  /// - 3 - 7m (-80 <= RSSI < -65): sparse long pulse (120ms vib, 1480ms rest -> 1600ms total)
   /// - > 7m or signal lost: stopped
   void _scheduleNextHapticPulse({bool immediateFirst = false}) {
     _cancelHaptic();
@@ -161,6 +169,10 @@ class _TagRadarDialogState extends State<TagRadarDialog>
       return;
     }
 
+    final isAlerting = _discoveryAlertUntil != null &&
+        DateTime.now().isBefore(_discoveryAlertUntil!);
+    if (isAlerting) return;
+
     final double rssi = _smoothedRssi!;
     if (rssi < -80) {
       // Out of range (> 7m) -> silent
@@ -168,35 +180,31 @@ class _TagRadarDialogState extends State<TagRadarDialog>
     }
 
     final Duration delay;
-    final VoidCallback feedbackAction;
+    final int vibDuration;
 
     if (rssi >= -52) {
-      // Dưới 1 mét: Rung liên tục / nhịp dồn dập
-      delay = const Duration(milliseconds: 180);
-      feedbackAction = () => HapticFeedback.heavyImpact();
+      // Dưới 1 mét: Rung liên tục / nhịp dồn dập (260ms motor pulse)
+      delay = const Duration(milliseconds: 340);
+      vibDuration = 260;
     } else if (rssi >= -65) {
-      // 1 - 3 mét: Rung nhịp đều đặn (nhịp tim)
-      delay = const Duration(milliseconds: 550);
-      feedbackAction = () => HapticFeedback.mediumImpact();
+      // 1 - 3 mét: Rung nhịp đều đặn (180ms heartbeat pulse)
+      delay = const Duration(milliseconds: 700);
+      vibDuration = 180;
     } else {
-      // 3 - 7 mét: Xung ngắt quãng lâu hơn để dễ phân biệt
-      delay = const Duration(milliseconds: 1350);
-      feedbackAction = () => HapticFeedback.lightImpact();
+      // 3 - 7 mét: Xung ngắt quãng lâu hơn để dễ phân biệt (120ms pulse)
+      delay = const Duration(milliseconds: 1600);
+      vibDuration = 120;
     }
 
     if (immediateFirst) {
-      try {
-        feedbackAction();
-      } catch (_) {}
+      RadarVibrator.vibrate(vibDuration);
     }
 
     _hapticTimer = Timer(delay, () {
       if (!mounted || !_hapticEnabled || !_isScanning || _isSignalLost) {
         return;
       }
-      try {
-        feedbackAction();
-      } catch (_) {}
+      RadarVibrator.vibrate(vibDuration);
       _scheduleNextHapticPulse(immediateFirst: false);
     });
   }
@@ -219,8 +227,13 @@ class _TagRadarDialogState extends State<TagRadarDialog>
               _statusMessage = 'Mất tín hiệu (Ngoài vùng quét)...';
             });
             _cancelHaptic();
+            // Automatically kick the BLE scanner to wake up hardware
+            _radarService.refreshScan();
           } else {
-            // Refresh "last seen Xs ago" counter
+            // Periodically refresh scan every 10s while lost to prevent hardware dormancy
+            if (secondsAgo >= 12 && secondsAgo % 10 == 0) {
+              _radarService.refreshScan();
+            }
             setState(() {});
           }
         } else {
@@ -239,6 +252,8 @@ class _TagRadarDialogState extends State<TagRadarDialog>
     setState(() {
       _isScanning = true;
       _isSignalLost = false;
+      _hasDiscoveredOnce = false;
+      _discoveryAlertUntil = null;
       _statusMessage = 'Đang dò sóng Bluetooth của tag...';
     });
 
@@ -253,6 +268,10 @@ class _TagRadarDialogState extends State<TagRadarDialog>
       _lastPacketTime = now;
 
       final wasLost = _isSignalLost;
+      final isFirstDiscovery = !_hasDiscoveredOnce || wasLost;
+      _hasDiscoveredOnce = true;
+      _isSignalLost = false;
+
       final oldTier = _getDistanceTier(_smoothedRssi);
 
       if (wasLost || _smoothedRssi == null) {
@@ -262,16 +281,35 @@ class _TagRadarDialogState extends State<TagRadarDialog>
         _smoothedRssi = (_smoothedRssi! * 0.6) + (result.rssi * 0.4);
       }
 
-      _isSignalLost = false;
-
       setState(() {
         _latestResult = result;
         _statusMessage = 'Đã bắt được tín hiệu!';
       });
 
-      final newTier = _getDistanceTier(_smoothedRssi);
-      if (wasLost || _hapticTimer == null || oldTier != newTier) {
-        _scheduleNextHapticPulse(immediateFirst: wasLost || _hapticTimer == null);
+      if (_hapticEnabled) {
+        if (isFirstDiscovery) {
+          // Discovery alert requested: 1s long vibration followed by 3 rapid beats
+          RadarVibrator.vibrateDiscovery();
+          _discoveryAlertUntil =
+              DateTime.now().add(const Duration(milliseconds: 1800));
+          _cancelHaptic();
+
+          // After discovery alert finishes, resume distance-based continuous/rhythmic loop
+          _hapticTimer = Timer(const Duration(milliseconds: 1850), () {
+            if (mounted && _hapticEnabled && _isScanning && !_isSignalLost) {
+              _scheduleNextHapticPulse(immediateFirst: true);
+            }
+          });
+        } else {
+          final isAlerting = _discoveryAlertUntil != null &&
+              DateTime.now().isBefore(_discoveryAlertUntil!);
+          if (!isAlerting) {
+            final newTier = _getDistanceTier(_smoothedRssi);
+            if (_hapticTimer == null || oldTier != newTier) {
+              _scheduleNextHapticPulse(immediateFirst: _hapticTimer == null);
+            }
+          }
+        }
       }
     });
 

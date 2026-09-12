@@ -19,5 +19,7 @@ class BleRadarService {
 
   Future<void> stopScanning() async {}
 
+  Future<void> refreshScan() async {}
+
   void dispose() {}
 }
