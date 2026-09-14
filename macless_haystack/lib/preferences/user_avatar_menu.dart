@@ -361,20 +361,20 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
   }) {
     return ListTile(
       dense: true,
-      visualDensity: const VisualDensity(horizontal: -2, vertical: -4),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       minVerticalPadding: 0,
       leading: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(7.5),
         decoration: BoxDecoration(
           color: iconColor.withOpacity(0.12),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: iconColor, size: 18),
+        child: Icon(icon, color: iconColor, size: 19),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 10.5)),
-      trailing: const Icon(Icons.chevron_right, size: 16),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11.5)),
+      trailing: const Icon(Icons.chevron_right, size: 18),
       onTap: onTap,
     );
   }
@@ -402,15 +402,15 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
               return AlertDialog(
                 alignment: isMobile ? Alignment.topCenter : Alignment.topRight,
                 insetPadding: EdgeInsets.only(
-                  top: 50,
-                  right: isMobile ? 8 : 16,
-                  left: isMobile ? 8 : 0,
-                  bottom: 16,
+                  top: 55,
+                  right: isMobile ? 12 : 16,
+                  left: isMobile ? 12 : 0,
+                  bottom: 20,
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                contentPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                contentPadding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 18, vertical: 16),
                 content: SizedBox(
-                  width: isMobile ? double.maxFinite : 315.0,
+                  width: isMobile ? double.maxFinite : 340.0,
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -420,7 +420,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                         Row(
                           children: [
                             CircleAvatar(
-                              radius: 22,
+                              radius: 25,
                               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                               backgroundImage: (_userPicture != null && _userPicture!.isNotEmpty)
                                   ? NetworkImage(_userPicture!)
@@ -430,31 +430,31 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                                       (_userName != null && _userName!.isNotEmpty)
                                           ? _userName![0].toUpperCase()
                                           : 'G',
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                                     )
                                   : null,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     _userName ?? 'Tài khoản Google',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 1),
+                                  const SizedBox(height: 2),
                                   Text(
                                     _userEmail ?? 'Chưa đăng nhập',
-                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
+                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 5),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: Colors.green.withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(8),
@@ -462,11 +462,11 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.check_circle, size: 10, color: Colors.green),
-                                        SizedBox(width: 3),
+                                        Icon(Icons.check_circle, size: 11, color: Colors.green),
+                                        SizedBox(width: 4),
                                         Text(
                                           'Google Verified',
-                                          style: TextStyle(fontSize: 9.5, color: Colors.green, fontWeight: FontWeight.bold),
+                                          style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
                                         ),
                                       ],
                                     ),
@@ -476,9 +476,9 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         const Divider(height: 1),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
 
                         // Section 1: Quick Core Links
                         _buildMenuItem(
@@ -494,7 +494,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             );
                           },
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 5),
 
                         _buildMenuItem(
                           icon: Icons.notifications_active_outlined,
@@ -512,7 +512,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             }
                           },
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 5),
 
                         _buildMenuItem(
                           icon: Icons.shield_outlined,
@@ -527,7 +527,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             );
                           },
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 5),
 
                         _buildMenuItem(
                           icon: Icons.phone_android,
@@ -541,7 +541,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                         ),
 
                         if (_isAdmin) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 5),
                           _buildMenuItem(
                             icon: Icons.admin_panel_settings,
                             iconColor: Colors.orange,
@@ -560,35 +560,35 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             },
                           ),
                         ],
-                        const SizedBox(height: 4),
-                        const Divider(height: 1),
                         const SizedBox(height: 6),
+                        const Divider(height: 1),
+                        const SizedBox(height: 8),
 
                         // Section 2: Quick Settings Directly In Avatar Menu!
                         const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'THIẾT LẬP NHANH',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
 
                         // Setting 1: Show this device's location
                         SwitchListTile(
                           dense: true,
-                          visualDensity: const VisualDensity(horizontal: -2, vertical: -4),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 6),
                           secondary: Container(
-                            padding: const EdgeInsets.all(6),
+                            padding: const EdgeInsets.all(7.5),
                             decoration: BoxDecoration(
                               color: Colors.teal.withOpacity(0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.my_location, size: 18, color: Colors.teal),
+                            child: const Icon(Icons.my_location, size: 19, color: Colors.teal),
                           ),
-                          title: const Text('Show this device\'s location', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
-                          subtitle: const Text('Định vị vị trí thiết bị này trên bản đồ', style: TextStyle(fontSize: 10.5)),
+                          title: const Text('Show this device\'s location', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500)),
+                          subtitle: const Text('Định vị vị trí thiết bị này trên bản đồ', style: TextStyle(fontSize: 11.5)),
                           value: showLocation,
                           onChanged: (val) async {
                             var userPrefs = Provider.of<UserPreferences>(context, listen: false);
@@ -608,9 +608,9 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                           },
                         ),
 
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         const Divider(height: 1),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
 
                         // Logout Button
                         SizedBox(
@@ -620,11 +620,11 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                               backgroundColor: Colors.red.shade50,
                               foregroundColor: Colors.red.shade700,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 9),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            icon: const Icon(Icons.logout, size: 16),
-                            label: const Text('Đăng xuất', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            icon: const Icon(Icons.logout, size: 18),
+                            label: const Text('Đăng xuất', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                             onPressed: () async {
                               Navigator.pop(ctx);
                               await Provider.of<AuthState>(context, listen: false).logout();
@@ -632,7 +632,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                           ),
                         ),
 
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         if (kIsWeb)
                           InkWell(
                             borderRadius: BorderRadius.circular(8),
@@ -641,7 +641,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                               AppDownloadDialog.show(context);
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -650,19 +650,19 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                                   const Text(
                                     'Tải App Android',
                                     style: TextStyle(
-                                      fontSize: 10.5,
+                                      fontSize: 11,
                                       color: Colors.teal,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   const SizedBox(width: 6),
-                                  const Text('•', style: TextStyle(color: Colors.grey, fontSize: 10.5)),
+                                  const Text('•', style: TextStyle(color: Colors.grey, fontSize: 11)),
                                   const SizedBox(width: 6),
                                   const Icon(Icons.code, size: 13, color: Colors.grey),
                                   const SizedBox(width: 4),
                                   Text(
                                     'v$_appVersion • GitHub',
-                                    style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                                   ),
                                 ],
                               ),
@@ -679,7 +679,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                               }
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -687,7 +687,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                                   const SizedBox(width: 4),
                                   Text(
                                     'FindMy Server v$_appVersion • GitHub',
-                                    style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                                   ),
                                 ],
                               ),
