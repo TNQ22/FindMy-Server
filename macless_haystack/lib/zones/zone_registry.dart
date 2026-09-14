@@ -149,9 +149,11 @@ class ZoneRegistry extends ChangeNotifier {
         body: jsonEncode(payload),
       );
 
-      if (res.statusCode == 201) {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
         await fetchZones();
         return true;
+      } else {
+        debugPrint('Failed to create zone: ${res.statusCode} ${res.body}');
       }
     } catch (e) {
       debugPrint('Error creating zone: $e');
@@ -199,9 +201,11 @@ class ZoneRegistry extends ChangeNotifier {
         body: jsonEncode(payload),
       );
 
-      if (res.statusCode == 200) {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
         await fetchZones();
         return true;
+      } else {
+        debugPrint('Failed to update zone: ${res.statusCode} ${res.body}');
       }
     } catch (e) {
       debugPrint('Error updating zone: $e');

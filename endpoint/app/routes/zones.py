@@ -28,20 +28,25 @@ router = APIRouter(prefix="/api/zones", tags=["Zones & Geofencing"])
 
 def _format_zone_response(zone: Zone) -> ZoneResponse:
     devices_data: list[ZoneDeviceItemResponse] = []
-    for zd in zone.zone_devices or []:
-        dev = zd.device
-        if dev:
-            devices_data.append(
-                ZoneDeviceItemResponse(
-                    device_id=dev.id,
-                    device_name=dev.name,
-                    hashed_adv_key=dev.hashed_adv_key,
-                    last_status=zd.last_status or "UNKNOWN",
-                    last_distance=zd.last_distance,
-                    last_alert_time=zd.last_alert_time,
-                    last_alert_type=zd.last_alert_type,
+    raw_zone_devices = []
+    try:
+        raw_zone_devices = getattr(zone, "zone_devices", []) or []
+        for zd in raw_zone_devices:
+            dev = getattr(zd, "device", None)
+            if dev:
+                devices_data.append(
+                    ZoneDeviceItemResponse(
+                        device_id=dev.id,
+                        device_name=dev.name,
+                        hashed_adv_key=dev.hashed_adv_key,
+                        last_status=zd.last_status or "UNKNOWN",
+                        last_distance=zd.last_distance,
+                        last_alert_time=zd.last_alert_time,
+                        last_alert_type=zd.last_alert_type,
+                    )
                 )
-            )
+    except Exception:
+        devices_data = []
 
     poly_points: list[PolygonPoint] | None = None
     if getattr(zone, "polygon_points", None):
@@ -58,37 +63,44 @@ def _format_zone_response(zone: Zone) -> ZoneResponse:
             poly_points = None
 
     schedules_data: list[ZoneScheduleResponse] = []
-    for s in getattr(zone, "schedules", []) or []:
-        if not s.is_active:
-            continue
-        days = []
-        try:
-            days = json.loads(s.days_of_week) if isinstance(s.days_of_week, str) else (s.days_of_week or [1, 2, 3, 4, 5, 6, 7])
-        except Exception:
-            days = [1, 2, 3, 4, 5, 6, 7]
+    try:
+        raw_schedules = getattr(zone, "schedules", []) or []
+        for s in raw_schedules:
+            if not getattr(s, "is_active", False):
+                continue
+            days = []
+            try:
+                days = json.loads(s.days_of_week) if isinstance(s.days_of_week, str) else (s.days_of_week or [1, 2, 3, 4, 5, 6, 7])
+            except Exception:
+                days = [1, 2, 3, 4, 5, 6, 7]
 
-        dev_name = "Tất cả thiết bị"
-        if s.device_id:
-            for zd in getattr(zone, "zone_devices", []) or []:
-                if zd.device and zd.device.id == s.device_id:
-                    dev_name = zd.device.name
-                    break
+            dev_name = "Tất cả thiết bị"
+            if getattr(s, "device_id", None):
+                try:
+                    for zd in raw_zone_devices:
+                        if getattr(zd, "device", None) and zd.device.id == s.device_id:
+                            dev_name = zd.device.name
+                            break
+                except Exception:
+                    pass
 
-        schedules_data.append(
-            ZoneScheduleResponse(
-                id=s.id,
-                zone_id=s.zone_id,
-                device_id=s.device_id,
-                device_name=dev_name,
-                user_id=s.user_id,
-                rule_type=s.rule_type,
-                target_time=s.target_time,
-                days_of_week=days,
-                is_active=s.is_active,
-                last_triggered_date=s.last_triggered_date,
-                created_at=s.created_at,
+            schedules_data.append(
+                ZoneScheduleResponse(
+                    id=s.id,
+                    zone_id=s.zone_id,
+                    device_id=s.device_id,
+                    device_name=dev_name,
+                    user_id=s.user_id,
+                    rule_type=s.rule_type,
+                    target_time=s.target_time,
+                    days_of_week=days,
+                    is_active=s.is_active,
+                    last_triggered_date=s.last_triggered_date,
+                    created_at=s.created_at,
+                )
             )
-        )
+    except Exception:
+        schedules_data = []
 
     return ZoneResponse(
         id=zone.id,
@@ -208,7 +220,10 @@ async def create_zone(
     # Re-fetch full object with relations
     stmt = (
         select(Zone)
-        .options(joinedload(Zone.zone_devices).joinedload(ZoneDevice.device))
+        .options(
+            joinedload(Zone.zone_devices).joinedload(ZoneDevice.device),
+            joinedload(Zone.schedules),
+        )
         .where(Zone.id == created_zone_id)
     )
     res = await db.execute(stmt)
@@ -350,7 +365,10 @@ async def update_zone(
     # Re-fetch full object
     res = await db.execute(
         select(Zone)
-        .options(joinedload(Zone.zone_devices).joinedload(ZoneDevice.device))
+        .options(
+            joinedload(Zone.zone_devices).joinedload(ZoneDevice.device),
+            joinedload(Zone.schedules),
+        )
         .where(Zone.id == target_zone_id, Zone.user_id == current_user.id)
     )
     full_zone = res.unique().scalar_one()

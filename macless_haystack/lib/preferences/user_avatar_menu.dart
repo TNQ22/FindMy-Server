@@ -142,24 +142,32 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
   void _showConnectAndroidDialog(BuildContext context) {
     final token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
     final serverUrl = _baseUrl;
+    final isMobile = MediaQuery.of(context).size.width < 500;
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 24,
+          vertical: 24,
+        ),
         title: const Row(
           children: [
             Icon(Icons.phone_android, color: Colors.teal),
             SizedBox(width: 8),
-            Text('Kết nối Ứng dụng Android', style: TextStyle(fontSize: 18)),
+            Text('Kết nối Ứng dụng Android', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. QR Code Section for Fast App Scanning
-              if (token.isNotEmpty) ...[
+        content: SizedBox(
+          width: isMobile ? double.maxFinite : 380.0,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. QR Code Section for Fast App Scanning
+                if (token.isNotEmpty) ...[
                 Center(
                   child: Container(
                     padding: const EdgeInsets.all(12),
@@ -325,7 +333,8 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
             ],
           ),
         ),
-        actions: [
+      ),
+      actions: [
           TextButton.icon(
             icon: const Icon(Icons.android, size: 18, color: Colors.teal),
             label: const Text(
@@ -615,7 +624,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             icon: const Icon(Icons.logout, size: 16),
-                            label: const Text('Đăng xuất Google', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            label: const Text('Đăng xuất', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                             onPressed: () async {
                               Navigator.pop(ctx);
                               await Provider.of<AuthState>(context, listen: false).logout();
