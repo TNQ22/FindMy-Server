@@ -51,6 +51,9 @@ async def run_sync_task() -> dict:
     total_new = 0
     total_decrypted = 0
     updated_device_names = []
+    user_new_reports = defaultdict(int)
+    user_decrypted = defaultdict(int)
+    user_updated_devices = defaultdict(list)
 
     async with AsyncSessionLocal() as db:
         # ── 1. Fetch active iCloud accounts ───────────────────────────────────
@@ -168,11 +171,17 @@ async def run_sync_task() -> dict:
                     new_rep.battery_status = dec_result["battery_status"]
                     new_rep.decrypted_at   = datetime.now(timezone.utc)
                     total_decrypted += 1
+                    for dev in matched_devices:
+                        if dev.user_id:
+                            user_decrypted[dev.user_id] += 1
 
                     new_decrypted_reports.append((matched_devices, dec_result))
 
                 db.add(new_rep)
                 total_new += 1
+                for dev in matched_devices:
+                    if dev.user_id:
+                        user_new_reports[dev.user_id] += 1
 
             # ── Process decrypted reports chronologically per device ───────────
             device_reports_map = defaultdict(list)
@@ -224,6 +233,9 @@ async def run_sync_task() -> dict:
 
                         if dev_obj.name not in updated_device_names:
                             updated_device_names.append(dev_obj.name)
+                        if dev_obj.user_id:
+                            if dev_obj.name not in user_updated_devices[dev_obj.user_id]:
+                                user_updated_devices[dev_obj.user_id].append(dev_obj.name)
 
                         # Evaluate geofence rules (Safe Zone Exit / Enter) in true chronological order
                         await evaluate_device_geofence(
@@ -272,11 +284,17 @@ async def run_sync_task() -> dict:
             total_new = 0
             total_decrypted = 0
             updated_device_names = []
+            user_new_reports = defaultdict(int)
+            user_decrypted = defaultdict(int)
+            user_updated_devices = defaultdict(list)
 
     return {
-        "new_reports":     total_new,
-        "decrypted":       total_decrypted,
-        "updated_devices": updated_device_names,
+        "new_reports":          total_new,
+        "decrypted":            total_decrypted,
+        "updated_devices":      updated_device_names,
+        "user_new_reports":     dict(user_new_reports),
+        "user_decrypted":       dict(user_decrypted),
+        "user_updated_devices": dict(user_updated_devices),
     }
 
 

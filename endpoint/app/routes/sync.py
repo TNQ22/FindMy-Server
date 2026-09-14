@@ -24,10 +24,13 @@ async def sync_now(
     """
     try:
         result = await run_sync_task()
+        user_new = result.get("user_new_reports", {}).get(current_user.id, 0)
+        user_dec = result.get("user_decrypted", {}).get(current_user.id, 0)
+        user_updated = result.get("user_updated_devices", {}).get(current_user.id, [])
         return SyncNowResponse(
-            new_reports=result.get("new_reports", 0),
-            decrypted=result.get("decrypted", 0),
-            updated_devices=result.get("updated_devices", []),
+            new_reports=user_new,
+            decrypted=user_dec,
+            updated_devices=user_updated,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Sync failed: {e}")

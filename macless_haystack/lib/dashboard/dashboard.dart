@@ -115,16 +115,37 @@ class _DashboardState extends State<Dashboard> {
         );
       } else {
         final newCount = result.newReports;
-        final updated = result.updatedDevices;
-        AppToast.showText(
-          context,
-          newCount > 0
-              ? 'Đã cập nhật vị trí: $newCount báo cáo mới${updated.isNotEmpty ? " cho ${updated.join(", ")}" : ""}'
-              : 'Vị trí đã được đồng bộ (không có dữ liệu mới)',
-          backgroundColor: Colors.teal.shade700,
-          icon: Icons.refresh_rounded,
-          duration: const Duration(seconds: 4),
-        );
+        
+        // Scope notifications strictly to tags owned / registered by the user
+        final userAccessories = accessoryRegistry.accessories;
+        final userTagNames = userAccessories.map((a) => a.name.trim().toLowerCase()).toSet();
+        List<String> updated = result.updatedDevices
+            .where((d) => userTagNames.contains(d.trim().toLowerCase()))
+            .toList();
+
+        if (accessory != null) {
+          final targetName = accessory.name.trim().toLowerCase();
+          final isUpdated = updated.any((d) => d.toLowerCase() == targetName);
+          AppToast.showText(
+            context,
+            isUpdated
+                ? 'Đã cập nhật vị trí mới nhất cho ${accessory.name}'
+                : 'Vị trí của ${accessory.name} đã được đồng bộ (không có dữ liệu mới)',
+            backgroundColor: Colors.teal.shade700,
+            icon: Icons.refresh_rounded,
+            duration: const Duration(seconds: 4),
+          );
+        } else {
+          AppToast.showText(
+            context,
+            newCount > 0
+                ? 'Đã cập nhật vị trí: $newCount báo cáo mới${updated.isNotEmpty ? " cho ${updated.join(", ")}" : ""}'
+                : 'Vị trí đã được đồng bộ (không có dữ liệu mới)',
+            backgroundColor: Colors.teal.shade700,
+            icon: Icons.refresh_rounded,
+            duration: const Duration(seconds: 4),
+          );
+        }
       }
     } catch (e, stacktrace) {
       logger.e('Error on fetching', error: e, stackTrace: stacktrace);
