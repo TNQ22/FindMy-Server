@@ -310,81 +310,165 @@ class _AdminPageState extends State<AdminPage> {
                                 return Card(
                                   elevation: 1.5,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundImage: u['picture'] != null ? NetworkImage(u['picture']) : null,
-                                      child: u['picture'] == null ? const Icon(Icons.person) : null,
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: isMobile ? 10 : 14,
+                                      vertical: isMobile ? 8 : 10,
                                     ),
-                                    title: Row(
+                                    child: Row(
                                       children: [
-                                        Expanded(child: Text(u['email'], style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        if (isAdmin)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(4)),
-                                            child: const Text('ADMIN', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                          )
-                                      ],
-                                    ),
-                                    subtitle: Text('Tên: ${u['name']} \nSố Tag: ${u['device_count']}'),
-                                    isThreeLine: true,
-                                    trailing: PopupMenuButton<String>(
-                                      onSelected: (val) {
-                                        if (val == 'add_tag') {
-                                          showDialog(
-                                            context: context,
-                                            builder: (_) => AdminAddTagDialog(userId: u['id'], userEmail: u['email']),
-                                          ).then((value) {
-                                            if (value == true) _fetchUsers();
-                                          });
-                                        } else if (val == 'delete') {
-                                          _deleteUser(u['id'], u['email']);
-                                        } else if (val == 'promote') {
-                                          _changeRole(u['id'], true);
-                                        } else if (val == 'demote') {
-                                          _changeRole(u['id'], false);
-                                        } else if (val == 'import') {
-                                          _importTags(u['id']);
-                                        } else if (val == 'share_tags') {
-                                          showDialog(
-                                            context: context,
-                                            builder: (_) => AdminShareTagsDialog(
-                                              userId: u['id'],
-                                              userEmail: u['email'],
-                                              allUsers: _users,
-                                            ),
-                                          ).then((_) => _fetchUsers());
-                                        }
-                                      },
-                                      itemBuilder: (BuildContext context) => [
-                                        const PopupMenuItem(
-                                          value: 'add_tag',
-                                          child: Row(children: [Icon(Icons.add_link, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Thêm Tag')]),
+                                        CircleAvatar(
+                                          radius: isMobile ? 17 : 20,
+                                          backgroundImage: u['picture'] != null ? NetworkImage(u['picture']) : null,
+                                          child: u['picture'] == null ? Icon(Icons.person, size: isMobile ? 18 : 20) : null,
                                         ),
-                                        const PopupMenuItem(
-                                          value: 'import',
-                                          child: Row(children: [Icon(Icons.file_upload, color: Colors.green, size: 20), SizedBox(width: 8), Text('Import từ File')]),
+                                        SizedBox(width: isMobile ? 10 : 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      u['email'] ?? '',
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: isMobile ? 13 : 14.5,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (isAdmin) ...[
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.orange.shade800,
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: const Text(
+                                                        'ADMIN',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 9,
+                                                          fontWeight: FontWeight.bold,
+                                                          letterSpacing: 0.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      (u['name'] != null && u['name'].toString().trim().isNotEmpty)
+                                                          ? u['name'].toString().trim()
+                                                          : 'Chưa có tên',
+                                                      style: TextStyle(
+                                                        fontSize: isMobile ? 11 : 12,
+                                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    width: 3,
+                                                    height: 3,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.grey.shade400,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Icon(Icons.style_outlined, size: 12, color: Colors.teal.shade700),
+                                                  const SizedBox(width: 3),
+                                                  Text(
+                                                    '${u['device_count'] ?? 0} tag',
+                                                    style: TextStyle(
+                                                      fontSize: isMobile ? 11 : 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.teal.shade700,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                        const PopupMenuItem(
-                                          value: 'share_tags',
-                                          child: Row(children: [Icon(Icons.share, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Quản lý & Share Tag')]),
+                                        SizedBox(
+                                          width: 32,
+                                          height: 32,
+                                          child: PopupMenuButton<String>(
+                                            padding: EdgeInsets.zero,
+                                            iconSize: 20,
+                                            icon: Icon(Icons.more_vert, color: Colors.grey.shade700),
+                                            onSelected: (val) {
+                                              if (val == 'add_tag') {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (_) => AdminAddTagDialog(userId: u['id'], userEmail: u['email']),
+                                                ).then((value) {
+                                                  if (value == true) _fetchUsers();
+                                                });
+                                              } else if (val == 'delete') {
+                                                _deleteUser(u['id'], u['email']);
+                                              } else if (val == 'promote') {
+                                                _changeRole(u['id'], true);
+                                              } else if (val == 'demote') {
+                                                _changeRole(u['id'], false);
+                                              } else if (val == 'import') {
+                                                _importTags(u['id']);
+                                              } else if (val == 'share_tags') {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (_) => AdminShareTagsDialog(
+                                                    userId: u['id'],
+                                                    userEmail: u['email'],
+                                                    allUsers: _users,
+                                                  ),
+                                                ).then((_) => _fetchUsers());
+                                              }
+                                            },
+                                            itemBuilder: (BuildContext context) => [
+                                              const PopupMenuItem(
+                                                value: 'add_tag',
+                                                child: Row(children: [Icon(Icons.add_link, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Thêm Tag')]),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'import',
+                                                child: Row(children: [Icon(Icons.file_upload, color: Colors.green, size: 20), SizedBox(width: 8), Text('Import từ File')]),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'share_tags',
+                                                child: Row(children: [Icon(Icons.share, color: Colors.teal, size: 20), SizedBox(width: 8), Text('Quản lý & Share Tag')]),
+                                              ),
+                                              if (!isAdmin)
+                                                const PopupMenuItem(
+                                                  value: 'promote',
+                                                  child: Row(children: [Icon(Icons.admin_panel_settings, color: Colors.orange, size: 20), SizedBox(width: 8), Text('Thăng quyền Admin')]),
+                                                ),
+                                              if (isAdmin)
+                                                const PopupMenuItem(
+                                                  value: 'demote',
+                                                  child: Row(children: [Icon(Icons.person, color: Colors.grey, size: 20), SizedBox(width: 8), Text('Hủy quyền Admin')]),
+                                                ),
+                                              if (!isAdmin)
+                                                const PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 20), SizedBox(width: 8), Text('Xóa')]),
+                                                ),
+                                            ],
+                                          ),
                                         ),
-                                        if (!isAdmin)
-                                          const PopupMenuItem(
-                                            value: 'promote',
-                                            child: Row(children: [Icon(Icons.admin_panel_settings, color: Colors.orange, size: 20), SizedBox(width: 8), Text('Thăng quyền Admin')]),
-                                          ),
-                                        if (isAdmin)
-                                          const PopupMenuItem(
-                                            value: 'demote',
-                                            child: Row(children: [Icon(Icons.person, color: Colors.grey, size: 20), SizedBox(width: 8), Text('Hủy quyền Admin')]),
-                                          ),
-                                        if (!isAdmin)
-                                          const PopupMenuItem(
-                                            value: 'delete',
-                                            child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 20), SizedBox(width: 8), Text('Xóa')]),
-                                          ),
                                       ],
                                     ),
                                   ),
