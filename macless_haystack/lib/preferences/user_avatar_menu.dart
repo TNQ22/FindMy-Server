@@ -19,6 +19,8 @@ import 'package:macless_haystack/zones/zone_management_dialog.dart';
 import 'package:macless_haystack/preferences/app_download_dialog.dart';
 
 import 'package:macless_haystack/util/server_url.dart';
+import '../update/app_update_service.dart';
+import '../update/app_update_dialog.dart';
 
 class UserAvatarMenu extends StatefulWidget {
   const UserAvatarMenu({super.key});
@@ -31,7 +33,8 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
   String? _userName;
   String? _userEmail;
   String? _userPicture;
-  String _appVersion = '1.1.1';
+  String _appVersion = AppUpdateService.currentAppVersion;
+  ReleaseInfo? _updateRelease;
   bool _isAdmin = false;
   bool _loading = true;
 
@@ -40,6 +43,18 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
     super.initState();
     _fetchUserInfo();
     _fetchAppVersion();
+    _checkAppUpdate();
+  }
+
+  Future<void> _checkAppUpdate() async {
+    try {
+      final rel = await AppUpdateService.checkUpdate(currentVersion: _appVersion);
+      if (rel != null && rel.isNewer && mounted) {
+        setState(() {
+          _updateRelease = rel;
+        });
+      }
+    } catch (_) {}
   }
 
   String get _baseUrl => getServerBaseUrl();
@@ -54,6 +69,7 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
             setState(() {
               _appVersion = data['version'].toString().trim();
             });
+            _checkAppUpdate();
           }
         }
       }
@@ -477,6 +493,53 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                           ],
                         ),
                         const SizedBox(height: 12),
+
+                        // Compact Update Notification Line to reactivate update dialog
+                        if (_updateRelease != null && _updateRelease!.isNewer) ...[
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () async {
+                                Navigator.pop(ctx);
+                                await AppUpdateDialog.show(
+                                  context,
+                                  releaseInfo: _updateRelease!,
+                                  manualTrigger: true,
+                                );
+                                _checkAppUpdate();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.amber.shade400, width: 0.8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.system_update_alt_rounded, size: 15, color: Colors.amber.shade800),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Có bản mới ${_updateRelease!.tagName} • Bấm cập nhật',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber.shade900,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.amber.shade800),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+
                         const Divider(height: 1),
                         const SizedBox(height: 8),
 
@@ -661,8 +724,18 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                                   const Icon(Icons.code, size: 13, color: Colors.grey),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'v$_appVersion • GitHub',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    _updateRelease != null && _updateRelease!.isNewer
+                                        ? 'v$_appVersion ➔ ${_updateRelease!.tagName} (Mới)'
+                                        : 'v$_appVersion • GitHub',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: _updateRelease != null && _updateRelease!.isNewer
+                                          ? Colors.amber.shade800
+                                          : Colors.grey,
+                                      fontWeight: _updateRelease != null && _updateRelease!.isNewer
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -673,9 +746,13 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                             borderRadius: BorderRadius.circular(8),
                             onTap: () async {
                               Navigator.pop(ctx);
-                              final url = Uri.parse('https://github.com/TNQ22/FindMy-Server/releases/latest');
-                              if (await canLaunchUrl(url)) {
-                                await launchUrl(url, mode: LaunchMode.externalApplication);
+                              if (_updateRelease != null && _updateRelease!.isNewer) {
+                                AppUpdateDialog.show(context, releaseInfo: _updateRelease!, manualTrigger: true);
+                              } else {
+                                final url = Uri.parse('https://github.com/TNQ22/FindMy-Server/releases/latest');
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                }
                               }
                             },
                             child: Padding(
@@ -683,11 +760,29 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.code, size: 13, color: Colors.grey),
+                                  Icon(
+                                    _updateRelease != null && _updateRelease!.isNewer
+                                        ? Icons.system_update_alt
+                                        : Icons.code,
+                                    size: 13,
+                                    color: _updateRelease != null && _updateRelease!.isNewer
+                                        ? Colors.amber.shade800
+                                        : Colors.grey,
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'FindMy Server v$_appVersion • GitHub',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    _updateRelease != null && _updateRelease!.isNewer
+                                        ? 'Có bản mới ${_updateRelease!.tagName} (v$_appVersion)'
+                                        : 'FindMy Server v$_appVersion • GitHub',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: _updateRelease != null && _updateRelease!.isNewer
+                                          ? Colors.amber.shade800
+                                          : Colors.grey,
+                                      fontWeight: _updateRelease != null && _updateRelease!.isNewer
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -755,7 +850,9 @@ class _UserAvatarMenuState extends State<UserAvatarMenu> {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: Colors.green,
+                    color: (_updateRelease != null && _updateRelease!.isNewer)
+                        ? Colors.amber.shade700
+                        : Colors.green,
                     shape: BoxShape.circle,
                     border: Border.all(color: Theme.of(context).colorScheme.surface, width: 1.5),
                   ),

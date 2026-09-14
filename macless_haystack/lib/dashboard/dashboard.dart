@@ -18,6 +18,8 @@ import 'package:macless_haystack/zones/zone_management_dialog.dart';
 
 import '../accessory/accessory_model.dart';
 import 'package:macless_haystack/preferences/user_avatar_menu.dart';
+import '../update/app_update_service.dart';
+import '../update/app_update_dialog.dart';
 
 class Dashboard extends StatefulWidget {
   /// Displays the layout for the app with Apple Find My style floating UI on desktop.
@@ -79,6 +81,22 @@ class _DashboardState extends State<Dashboard> {
     if (!locationPreferenceKnown || locationAccessWanted) {
       locationModel.requestLocationUpdates();
     }
+
+    // Check for app updates on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAppUpdateOnStartup();
+    });
+  }
+
+  Future<void> _checkAppUpdateOnStartup() async {
+    try {
+      final release = await AppUpdateService.checkUpdate();
+      if (release != null && release.isNewer && !release.isIgnored && mounted) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (!mounted) return;
+        AppUpdateDialog.show(context, releaseInfo: release);
+      }
+    } catch (_) {}
   }
 
   /// Fetch location updates for all accessories when user manually triggers refresh.
