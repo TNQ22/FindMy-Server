@@ -195,15 +195,17 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
 
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 12 : 24,
-        vertical: isMobile ? 16 : 24,
+        horizontal: isMobile ? 4 : 24,
+        vertical: isMobile ? 8 : 24,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(isMobile ? 14 : 20),
+      ),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 520,
-          maxHeight: mediaQuery.size.height * 0.90,
+          maxWidth: isMobile ? double.infinity : 520,
+          maxHeight: mediaQuery.size.height * (isMobile ? 0.95 : 0.90),
         ),
         child: Form(
           key: _formKey,
@@ -276,8 +278,8 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
               Flexible(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 14 : 22,
-                    vertical: 18,
+                    horizontal: isMobile ? 10 : 22,
+                    vertical: isMobile ? 14 : 18,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,7 +500,7 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
               // Fixed Bottom Action Bar (always visible on mobile & desktop)
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 14 : 20,
+                  horizontal: isMobile ? 10 : 20,
                   vertical: isMobile ? 10 : 12,
                 ),
                 decoration: BoxDecoration(
@@ -522,7 +524,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                   child: Row(
                     children: [
                       Expanded(
-                        flex: 2,
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             padding: EdgeInsets.symmetric(vertical: isMobile ? 11 : 13),
@@ -538,7 +539,6 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        flex: 3,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.teal.shade700,
@@ -549,7 +549,7 @@ class _AccessoryDetailState extends State<AccessoryDetail> {
                           ),
                           icon: const Icon(Icons.save_outlined, size: 18),
                           label: const Text(
-                            'Lưu Thay Đổi',
+                            'Lưu',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                           onPressed: _saveChanges,

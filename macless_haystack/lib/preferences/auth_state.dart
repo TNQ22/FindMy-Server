@@ -20,7 +20,12 @@ class AuthState extends ChangeNotifier {
   }
 
   void _checkInitialToken() {
-    final token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    var token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    if (token.isEmpty) {
+      try {
+        token = html.window.localStorage['ENDPOINT_USER'] ?? '';
+      } catch (_) {}
+    }
     _isLoggedIn = token.trim().isNotEmpty;
   }
 
@@ -28,6 +33,9 @@ class AuthState extends ChangeNotifier {
   Future<void> onLoginSuccess(String jwtToken) async {
     final bearerToken = jwtToken.startsWith('Bearer ') ? jwtToken : 'Bearer $jwtToken';
     await Settings.setValue<String>(endpointUser, bearerToken);
+    try {
+      html.window.localStorage['ENDPOINT_USER'] = bearerToken;
+    } catch (_) {}
     _isLoggedIn = true;
     _sessionExpired = false;
     notifyListeners();
@@ -35,7 +43,7 @@ class AuthState extends ChangeNotifier {
 
   /// Call this when the user actively logs out.
   Future<void> logout() async {
-    final token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    final token = bearerToken;
     if (token.trim().isNotEmpty) {
       try {
         final baseUrl = getServerBaseUrl();
@@ -72,6 +80,12 @@ class AuthState extends ChangeNotifier {
 
   /// Get the current bearer token.
   String get bearerToken {
-    return Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    var token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    if (token.isEmpty) {
+      try {
+        token = html.window.localStorage['ENDPOINT_USER'] ?? '';
+      } catch (_) {}
+    }
+    return token;
   }
 }

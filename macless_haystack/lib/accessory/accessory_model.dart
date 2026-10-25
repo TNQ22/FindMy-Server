@@ -259,6 +259,12 @@ class Accessory {
         batteryType = json['batteryType']?.toString() ?? json['battery_type']?.toString(),
         batteryReplacedAt = _parseDateTime(json['batteryReplacedAt'] ?? json['battery_replaced_at']) {
     _init();
+    serverId = json['serverId'] as int? ?? json['id_server'] as int?;
+    isMaster = json['isMaster'] == true;
+    masterDeviceId = json['masterDeviceId'] as int?;
+    separationAlertEnabled = json['separationAlertEnabled'] == true;
+    separationThresholdMeters = (json['separationThresholdMeters'] as num?)?.toDouble() ?? 150.0;
+    ignoreSeparationInSafeZones = json['ignoreSeparationInSafeZones'] != false;
   }
 
   static DateTime? _parseDateTime(dynamic val) {
@@ -319,9 +325,7 @@ class Accessory {
   ///
   /// Typically used by JSON encoder.
   /// ```dart
-  ///   var accessory = Accessory(...);
-  ///   jsonEncode(accessory);
-  /// ```
+  ///   var accessory = Accessory(...);\n  ///   jsonEncode(accessory);\n  /// ```
   Map<String, dynamic> toJson() {
     String colorHex = 'ff2196f3';
     try {
@@ -342,6 +346,12 @@ class Accessory {
       'additionalKeys': List<String>.from(additionalKeys),
       'isShared': isShared,
       'isOwner': isOwner,
+      if (serverId != null) 'serverId': serverId,
+      'isMaster': isMaster,
+      if (masterDeviceId != null) 'masterDeviceId': masterDeviceId,
+      'separationAlertEnabled': separationAlertEnabled,
+      'separationThresholdMeters': separationThresholdMeters,
+      'ignoreSeparationInSafeZones': ignoreSeparationInSafeZones,
       if (lastBatteryStatus != null) 'lastBatteryStatus': lastBatteryStatus!.name,
       if (notes != null) 'notes': notes,
       if (batteryType != null) 'batteryType': batteryType,

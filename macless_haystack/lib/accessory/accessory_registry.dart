@@ -43,6 +43,16 @@ class LocationHistoryEntry {
           json['timestamp_ms'] as int, isUtc: true),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+      'battery_status': batteryStatus,
+      'timestamp_ms': timestamp.millisecondsSinceEpoch,
+    };
+  }
 }
 
 /// Result of a manual sync request (POST /api/sync/now).
@@ -68,6 +78,17 @@ class AccessoryRegistry extends ChangeNotifier {
   bool loading = false;
   bool initialLoadFinished = false;
 
+  /// True when the backend server is unreachable or offline
+  bool _isOffline = false;
+  bool get isOffline => _isOffline;
+
+  void setOffline(bool val) {
+    if (_isOffline != val) {
+      _isOffline = val;
+      notifyListeners();
+    }
+  }
+
   /// Called when a 401 Unauthorized response is received.
   VoidCallback? onUnauthorized;
 
@@ -76,8 +97,7 @@ class AccessoryRegistry extends ChangeNotifier {
   );
 
   Map<String, String> get _headers {
-    Map<String, String> headers = {'Content-Type': 'application/json'};
-    try {
+    Map<String, String> headers = {'Content-Type': 'application/json'};\n    try {
       String token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
       if (token.isEmpty) {
         token = html.window.localStorage['ENDPOINT_USER'] ?? '';
@@ -94,7 +114,8 @@ class AccessoryRegistry extends ChangeNotifier {
   Future<Map<String, dynamic>> fetchICloudStatus() async {
     try {
       final res = await http.get(
-          Uri.parse('$_baseUrl/api/icloud/status'), headers: _headers);
+          Uri.parse('$_baseUrl/api/icloud/status'), headers: _headers)
+          .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       }
@@ -107,7 +128,7 @@ class AccessoryRegistry extends ChangeNotifier {
       UnmodifiableListView(_accessories);
 
   /// Loads accessories from storage then syncs with backend server.
-  /// Backend now provides last known location directly (no client-side decrypt).
+  /// Backend provides last known location directly.
   Future<void> loadAccessories() async {
     loading = true;
     initialLoadFinished = false;
@@ -163,6 +184,11 @@ class AccessoryRegistry extends ChangeNotifier {
     Map<String, String> headers = {'Content-Type': 'application/json'};
     String token =
         Settings.getValue<String>(endpointUser, defaultValue: '')!;
+    if (token.isEmpty) {
+      try {
+        token = html.window.localStorage['ENDPOINT_USER'] ?? '';
+      } catch (_) {}
+    }
     if (token.trim().isNotEmpty) {
       headers['Authorization'] = token.trim().startsWith('Bearer ')
           ? token.trim()
@@ -171,7 +197,71 @@ class AccessoryRegistry extends ChangeNotifier {
     return headers;
   }
 
-  // ── Backend sync ────────────────────────────────────────────────────────────
+  // ── Location History Offline Caching Helpers ──────────────────────────────
+
+  String _historyStorageKey(String hashedKey) => 'HIST_$hashedKey';
+
+  Future<void> _saveCachedHistory(String hashedKey, List<LocationHistoryEntry> entries) async {
+    try {
+      final trimmed = entries.length > 500 ? entries.sublist(0, 500) : entries;
+      final jsonStr = jsonEncode(trimmed.map((e) => e.toJson()).toList());
+      try {
+        html.window.localStorage[_historyStorageKey(hashedKey)] = jsonStr;
+      } catch (_) {}
+      try {
+        await _storage.write(key: _historyStorageKey(hashedKey), value: jsonStr);
+      } catch (_) {}
+    } catch (e) {
+      logger.w('Failed to cache history for $hashedKey: $e');
+    }
+  }
+
+  Future<List<LocationHistoryEntry>> _loadCachedHistory(String hashedKey) async {
+    try {
+      String? jsonStr;
+      try {
+        jsonStr = html.window.localStorage[_historyStorageKey(hashedKey)];
+      } catch (_) {}
+      if (jsonStr == null || jsonStr.isEmpty) {
+        try {
+          jsonStr = await _storage.read(key: _historyStorageKey(hashedKey));
+        } catch (_) {}
+      }
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final List list = jsonDecode(jsonStr);
+        return list
+            .map((item) => LocationHistoryEntry.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      logger.w('Failed to load cached history for $hashedKey: $e');
+    }
+    return [];
+  }
+
+  Future<void> _appendLastLocationToHistoryCache(Accessory acc) async {
+    if (acc.lastLocation == null) return;
+    try {
+      final existing = await _loadCachedHistory(acc.hashedPublicKey);
+      final ts = acc.datePublished ?? DateTime.now();
+      final exists = existing.any((e) =>
+          (e.timestamp.millisecondsSinceEpoch - ts.millisecondsSinceEpoch).abs() < 10000);
+      if (!exists) {
+        existing.insert(
+          0,
+          LocationHistoryEntry(
+            latitude: acc.lastLocation!.latitude,
+            longitude: acc.lastLocation!.longitude,
+            timestamp: ts,
+            batteryStatus: acc.lastBatteryStatus?.name,
+          ),
+        );
+        await _saveCachedHistory(acc.hashedPublicKey, existing);
+      }
+    } catch (_) {}
+  }
+
+  // ── Backend sync ──────────────────────────────────────────────────────────
 
   /// Syncs the device list from the backend, restores private keys to
   /// secure storage, and updates last-known location from server-side data.
@@ -179,18 +269,26 @@ class AccessoryRegistry extends ChangeNotifier {
     try {
       final token =
           Settings.getValue<String>(endpointUser, defaultValue: '')!;
-      if (token.trim().isEmpty) return;
+      final lsToken = () {
+        try {
+          return html.window.localStorage['ENDPOINT_USER'] ?? '';
+        } catch (_) {
+          return '';
+        }
+      }();
+      if (token.trim().isEmpty && lsToken.trim().isEmpty) return;
 
       final res = await http.get(
         Uri.parse('$_baseUrl/api/devices'),
         headers: _authHeaders,
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 401) {
         onUnauthorized?.call();
         return;
       }
       if (res.statusCode == 200) {
+        _isOffline = false;
         List data = jsonDecode(res.body);
         List<Accessory> syncedAccessories = [];
         bool updated = false;
@@ -252,7 +350,7 @@ class AccessoryRegistry extends ChangeNotifier {
             acc.name = item['name'].toString();
           }
 
-          // ── Apply server-side decrypted location ──────────────────────────
+          // Apply server-side decrypted location
           final double? lastLat =
               item['last_lat'] != null ? (item['last_lat'] as num).toDouble() : null;
           final double? lastLon =
@@ -261,7 +359,6 @@ class AccessoryRegistry extends ChangeNotifier {
           final String? lastBattery = item['last_battery'] as String?;
 
           if (lastLat != null && lastLon != null) {
-            // Server-side location is always authoritative
             acc.lastLocation = LatLng(lastLat, lastLon);
             if (lastSeenStr != null) {
               try {
@@ -292,6 +389,8 @@ class AccessoryRegistry extends ChangeNotifier {
           }
 
           syncedAccessories.add(acc);
+          // Pre-cache last known location into local history
+          _appendLastLocationToHistoryCache(acc);
           updated = true;
         }
 
@@ -300,9 +399,14 @@ class AccessoryRegistry extends ChangeNotifier {
           _storeAccessories();
           notifyListeners();
         }
+      } else {
+        _isOffline = true;
       }
     } catch (e) {
-      logger.e('Failed to sync devices from backend server: $e');
+      logger.w('Failed to sync devices from backend server (offline active): $e');
+      _isOffline = true;
+    } finally {
+      notifyListeners();
     }
   }
 
@@ -312,14 +416,21 @@ class AccessoryRegistry extends ChangeNotifier {
     try {
       final token =
           Settings.getValue<String>(endpointUser, defaultValue: '')!;
-      if (token.trim().isEmpty) {
+      final lsToken = () {
+        try {
+          return html.window.localStorage['ENDPOINT_USER'] ?? '';
+        } catch (_) {
+          return '';
+        }
+      }();
+      if (token.trim().isEmpty && lsToken.trim().isEmpty) {
         return SyncResult(newReports: 0, decrypted: 0, updatedDevices: []);
       }
 
       final res = await http.post(
         Uri.parse('$_baseUrl/api/sync/now'),
         headers: _authHeaders,
-      );
+      ).timeout(const Duration(seconds: 6));
 
       if (res.statusCode == 401) {
         onUnauthorized?.call();
@@ -328,72 +439,143 @@ class AccessoryRegistry extends ChangeNotifier {
 
       SyncResult result = SyncResult(newReports: 0, decrypted: 0, updatedDevices: []);
       if (res.statusCode == 200) {
+        _isOffline = false;
         result = SyncResult.fromJson(jsonDecode(res.body));
+      } else {
+        _isOffline = true;
       }
 
       // Reload latest locations from backend after sync
       await syncWithBackendServer();
       return result;
     } catch (e) {
-      logger.e('Failed to trigger immediate sync: $e');
+      logger.w('Failed to trigger immediate sync (offline): $e');
+      _isOffline = true;
+      notifyListeners();
       return SyncResult(newReports: 0, decrypted: 0, updatedDevices: []);
     }
   }
 
-  /// Fetches the decrypted location history for a specific accessory from the backend.
-  /// [fromTs] and [toTs] are unix millisecond timestamps.
-  /// Pass [fromTs] = 0 for "all time".
+  /// Fetches the decrypted location history for a specific accessory.
+  /// When online, queries the server and caches the data locally.
+  /// When offline or if server is down, loads from local storage.
   Future<List<LocationHistoryEntry>> loadDeviceHistory(
     String hashedPublicKey, {
     int? fromTs,
     int? toTs,
     int? days,
   }) async {
+    // 1. Try to fetch from backend with 4-second timeout
     try {
-      // Find the device ID by key
-      final devRes = await http.get(
-        Uri.parse('$_baseUrl/api/devices'),
-        headers: _authHeaders,
-      );
-      if (devRes.statusCode != 200) return [];
-
-      List data = jsonDecode(devRes.body);
-      var deviceItem = data.firstWhere(
-        (d) => d['hashed_adv_key'] == hashedPublicKey,
-        orElse: () => null,
-      );
-      if (deviceItem == null) return [];
-
-      int deviceId = deviceItem['id'];
-
-      // Build query string
-      String queryStr = '';
-      if (days != null) {
-        queryStr = '?days=$days';
-      } else if (fromTs != null) {
-        queryStr = '?from_ts=$fromTs';
-        if (toTs != null) queryStr += '&to_ts=$toTs';
+      int? deviceId;
+      for (var acc in _accessories) {
+        if (acc.hashedPublicKey == hashedPublicKey && acc.serverId != null) {
+          deviceId = acc.serverId;
+          break;
+        }
       }
 
-      final histRes = await http.get(
-        Uri.parse('$_baseUrl/api/devices/$deviceId/locations$queryStr'),
-        headers: _authHeaders,
-      );
+      if (deviceId == null) {
+        final devRes = await http.get(
+          Uri.parse('$_baseUrl/api/devices'),
+          headers: _authHeaders,
+        ).timeout(const Duration(seconds: 4));
+        if (devRes.statusCode == 200) {
+          List data = jsonDecode(devRes.body);
+          var deviceItem = data.firstWhere(
+            (d) => d['hashed_adv_key'] == hashedPublicKey,
+            orElse: () => null,
+          );
+          if (deviceItem != null) {
+            deviceId = deviceItem['id'];
+          }
+        }
+      }
 
-      if (histRes.statusCode != 200) return [];
+      if (deviceId != null) {
+        String queryStr = '';
+        if (days != null) {
+          queryStr = '?days=$days';
+        } else if (fromTs != null) {
+          queryStr = '?from_ts=$fromTs';
+          if (toTs != null) queryStr += '&to_ts=$toTs';
+        }
 
-      Map<String, dynamic> body = jsonDecode(histRes.body);
-      List items = body['items'] ?? [];
-      return items
-          .map((e) => LocationHistoryEntry.fromJson(e as Map<String, dynamic>))
-          .toList();
+        final histRes = await http.get(
+          Uri.parse('$_baseUrl/api/devices/$deviceId/locations$queryStr'),
+          headers: _authHeaders,
+        ).timeout(const Duration(seconds: 4));
+
+        if (histRes.statusCode == 200) {
+          Map<String, dynamic> body = jsonDecode(histRes.body);
+          List items = body['items'] ?? [];
+          final fetched = items
+              .map((e) => LocationHistoryEntry.fromJson(e as Map<String, dynamic>))
+              .toList();
+
+          _isOffline = false;
+
+          // Merge fetched into local cache
+          final existing = await _loadCachedHistory(hashedPublicKey);
+          final map = <int, LocationHistoryEntry>{};
+          for (var e in existing) {
+            map[e.timestamp.millisecondsSinceEpoch] = e;
+          }
+          for (var e in fetched) {
+            map[e.timestamp.millisecondsSinceEpoch] = e;
+          }
+          final merged = map.values.toList()
+            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          await _saveCachedHistory(hashedPublicKey, merged);
+
+          return fetched;
+        }
+      }
     } catch (e) {
-      logger.e('Failed to load device history: $e');
-      return [];
+      logger.w('Network failed loading history, using local cache: $e');
+      _isOffline = true;
+      notifyListeners();
     }
+
+    // 2. Offline / Server Down: Read from cached history
+    final cached = await _loadCachedHistory(hashedPublicKey);
+    if (cached.isNotEmpty) {
+      var filtered = cached;
+      if (days != null) {
+        final cutoff = DateTime.now().subtract(Duration(days: days));
+        filtered = filtered.where((e) => e.timestamp.isAfter(cutoff)).toList();
+      } else {
+        if (fromTs != null && fromTs > 0) {
+          filtered = filtered.where((e) => e.timestamp.millisecondsSinceEpoch >= fromTs).toList();
+        }
+        if (toTs != null && toTs > 0) {
+          filtered = filtered.where((e) => e.timestamp.millisecondsSinceEpoch <= toTs).toList();
+        }
+      }
+      if (filtered.isNotEmpty) {
+        return filtered;
+      }
+      return cached;
+    }
+
+    // 3. Fallback: If no history was previously saved, synthesize entry from last known location
+    for (var acc in _accessories) {
+      if (acc.hashedPublicKey == hashedPublicKey && acc.lastLocation != null) {
+        return [
+          LocationHistoryEntry(
+            latitude: acc.lastLocation!.latitude,
+            longitude: acc.lastLocation!.longitude,
+            timestamp: acc.datePublished ?? DateTime.now(),
+            batteryStatus: acc.lastBatteryStatus?.name,
+          ),
+        ];
+      }
+    }
+
+    return [];
   }
 
-  // ── Device management ───────────────────────────────────────────────────────
+  // ── Device management ─────────────────────────────────────────────────────
 
   void addAccessory(Accessory accessory) {
     Accessory? foundOne;
@@ -462,7 +644,7 @@ class AccessoryRegistry extends ChangeNotifier {
     }
   }
 
-  // ── Target Tag Tracking Mode ───────────────────────────────────────────────
+  // ── Target Tag Tracking Mode ──────────────────────────────────────────────
   String? _trackedAccessoryKey;
   bool _shouldFitTracking = false;
 
@@ -489,7 +671,7 @@ class AccessoryRegistry extends ChangeNotifier {
     _shouldFitTracking = false;
   }
 
-  // ── Private helpers ─────────────────────────────────────────────────────────
+  // ── Private helpers ───────────────────────────────────────────────────────
 
   Future<void> _storeAccessories() async {
     try {
@@ -522,7 +704,14 @@ class AccessoryRegistry extends ChangeNotifier {
     try {
       final token =
           Settings.getValue<String>(endpointUser, defaultValue: '')!;
-      if (token.trim().isEmpty) return;
+      final lsToken = () {
+        try {
+          return html.window.localStorage['ENDPOINT_USER'] ?? '';
+        } catch (_) {
+          return '';
+        }
+      }();
+      if (token.trim().isEmpty && lsToken.trim().isEmpty) return;
 
       String privateKey = '';
       try {
@@ -544,9 +733,9 @@ class AccessoryRegistry extends ChangeNotifier {
         Uri.parse('$_baseUrl/api/devices'),
         headers: _authHeaders,
         body: body,
-      );
+      ).timeout(const Duration(seconds: 4));
     } catch (e) {
-      logger.e('Failed to push device to backend: $e');
+      logger.w('Failed to push device to backend (offline): $e');
     }
   }
 
@@ -554,12 +743,19 @@ class AccessoryRegistry extends ChangeNotifier {
     try {
       final token =
           Settings.getValue<String>(endpointUser, defaultValue: '')!;
-      if (token.trim().isEmpty) return;
+      final lsToken = () {
+        try {
+          return html.window.localStorage['ENDPOINT_USER'] ?? '';
+        } catch (_) {
+          return '';
+        }
+      }();
+      if (token.trim().isEmpty && lsToken.trim().isEmpty) return;
 
       final res = await http.get(
         Uri.parse('$_baseUrl/api/devices'),
         headers: _authHeaders,
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
         List data = jsonDecode(res.body);
@@ -569,17 +765,17 @@ class AccessoryRegistry extends ChangeNotifier {
             await http.delete(
               Uri.parse('$_baseUrl/api/devices/$devId'),
               headers: _authHeaders,
-            );
+            ).timeout(const Duration(seconds: 4));
             break;
           }
         }
       }
     } catch (e) {
-      logger.e('Failed to delete device from backend: $e');
+      logger.w('Failed to delete device from backend (offline): $e');
     }
   }
 
-  // ── Battery status helper ───────────────────────────────────────────────────
+  // ── Battery status helper ─────────────────────────────────────────────────
   static AccessoryBatteryStatus? _parseBattery(String? val) {
     if (val == null) return null;
     try {
@@ -615,7 +811,7 @@ class AccessoryRegistry extends ChangeNotifier {
         Uri.parse('$_baseUrl/api/devices/$deviceId/companion-settings'),
         headers: _authHeaders,
         body: jsonEncode(body),
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
         // Refresh devices from backend
@@ -658,7 +854,7 @@ class AccessoryRegistry extends ChangeNotifier {
         final res = await http.get(
           Uri.parse('$_baseUrl/api/devices'),
           headers: _authHeaders,
-        );
+        ).timeout(const Duration(seconds: 4));
         if (res.statusCode == 200) {
           List data = jsonDecode(res.body);
           for (var item in data) {
@@ -681,7 +877,7 @@ class AccessoryRegistry extends ChangeNotifier {
             'battery_replaced_at':
                 acc.batteryReplacedAt?.toUtc().toIso8601String(),
           }),
-        );
+        ).timeout(const Duration(seconds: 4));
         if (patchRes.statusCode == 200) {
           return true;
         } else {
@@ -697,4 +893,3 @@ class AccessoryRegistry extends ChangeNotifier {
     }
   }
 }
-

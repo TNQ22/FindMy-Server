@@ -185,6 +185,7 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
 
   @override
   Widget build(BuildContext context) {
+    final registry = Provider.of<AccessoryRegistry>(context);
     final langCode = Localizations.maybeLocaleOf(context)?.languageCode ?? 'vi';
     final entries = _historyEntries;
     final clusters = _clusterEntries(entries);
@@ -221,6 +222,28 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
       body: SafeArea(
         child: Column(
           children: [
+            // Offline Status Notice Banner
+            if (registry.isOffline)
+              Container(
+                width: double.infinity,
+                color: Colors.amber.shade900,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_off, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _historyEntries.isNotEmpty
+                            ? 'Chế độ ngoại tuyến: Đang xem lịch sử đã lưu trên máy'
+                            : 'Chế độ ngoại tuyến: Chưa có dữ liệu lịch sử đã lưu cho khoảng thời gian này',
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // Map
             Flexible(
               flex: 3,
@@ -484,7 +507,9 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
                             .withOpacity(0.5)),
                     const SizedBox(width: 6),
                     Text(
-                      'Không có dữ liệu trong khoảng thời gian này',
+                      registry.isOffline
+                          ? 'Chưa có lịch sử được lưu cho khoảng thời gian này (Ngoại tuyến)'
+                          : 'Không có dữ liệu trong khoảng thời gian này',
                       style: TextStyle(
                         color: Theme.of(context)
                             .colorScheme
@@ -518,46 +543,62 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
       width: 250,
       height: isSameTime ? 110 : 135,
       child: Card(
-        elevation: 4,
+        color: Theme.of(context).cardColor.withOpacity(0.95),
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(10.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '📍 ${cluster.latitude.toStringAsFixed(5)}, ${cluster.longitude.toStringAsFixed(5)}',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  const Icon(Icons.location_on, color: Colors.teal, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${cluster.latitude.toStringAsFixed(5)}, ${cluster.longitude.toStringAsFixed(5)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => setState(() {
+                      showPopup = false;
+                      popupEntry = null;
+                    }),
+                    child: const Icon(Icons.close, size: 16),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              if (isSameTime)
+              const Divider(height: 8),
+              if (isSameTime) ...[
                 Text(
-                  '🕐 ${_fmtDateTime(cluster.startTime.toLocal())}',
+                  'Thời điểm: ${_formatDateTime(cluster.startTime)}',
                   style: const TextStyle(fontSize: 11),
-                )
-              else ...[
+                ),
+              ] else ...[
                 Text(
-                  '🕐 ${_fmtDateTime(cluster.startTime.toLocal())}',
+                  'Từ: ${_formatDateTime(cluster.startTime)}',
                   style: const TextStyle(fontSize: 11),
                 ),
                 Text(
-                  ' ➔ ${_fmtDateTime(cluster.endTime.toLocal())}',
+                  'Đến: ${_formatDateTime(cluster.endTime)}',
                   style: const TextStyle(fontSize: 11),
                 ),
                 Text(
-                  '⏳ Thời gian ở đây: ${_fmtDuration(cluster.duration)}',
-                  style: const TextStyle(fontSize: 11, color: Colors.teal, fontWeight: FontWeight.w500),
+                  'Thời gian dừng: ${_formatDuration(cluster.duration)}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.teal),
                 ),
               ],
-              if (cluster.batteryStatus != null)
+              if (cluster.batteryStatus != null) ...[
+                const SizedBox(height: 2),
                 Text(
-                  '🔋 ${cluster.batteryStatus}',
-                  style: const TextStyle(fontSize: 11),
+                  'Pin: ${cluster.batteryStatus}',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
-              Text(
-                '📊 Báo cáo gộp: ${cluster.rawEntries.length}',
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              ),
+              ],
             ],
           ),
         ),
@@ -565,16 +606,21 @@ class _AccessoryHistoryState extends State<AccessoryHistory> {
     );
   }
 
-  String _fmtDuration(Duration d) {
-    if (d.inHours > 0) {
-      final mins = d.inMinutes % 60;
-      return mins > 0 ? '${d.inHours} giờ $mins phút' : '${d.inHours} giờ';
-    }
-    return '${d.inMinutes} phút';
+  String _formatDateTime(DateTime dt) {
+    final local = dt.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    final d = local.day.toString().padLeft(2, '0');
+    final mo = local.month.toString().padLeft(2, '0');
+    return '$h:$m $d/$mo';
   }
 
-  String _fmtDateTime(DateTime d) {
-    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  String _formatDuration(Duration d) {
+    if (d.inHours > 0) {
+      final hours = d.inHours;
+      final mins = d.inMinutes.remainder(60);
+      return '${hours}h ${mins}m';
+    }
+    return '${d.inMinutes} phút';
   }
 }

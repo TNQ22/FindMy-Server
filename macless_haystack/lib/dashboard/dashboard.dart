@@ -99,7 +99,7 @@ class _DashboardState extends State<Dashboard> {
     } catch (_) {}
   }
 
-  /// Fetch location updates for all accessories when user manually triggers refresh.
+  /// Refreshes locations via backend sync.
   Future<void> loadLocationUpdates(Accessory? accessory) async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
@@ -110,12 +110,23 @@ class _DashboardState extends State<Dashboard> {
       final result = await accessoryRegistry.triggerImmediateSync();
       if (!mounted) return;
 
-      // Check global iCloud Pool status for precise user feedback
-      var statusData = await accessoryRegistry.fetchICloudStatus();
-      String loginState = (statusData['login_state'] ?? 'LOGGED_OUT').toString();
-      List accounts = (statusData['accounts'] as List?) ?? [];
-      var activeAccounts = accounts.where((a) => a['is_active'] == true).toList();
-      bool hasLoggedInAccount = activeAccounts.any((a) => (a['login_state'] ?? '').toString() == 'LOGGED_IN');
+      if (accessoryRegistry.isOffline) {
+        AppToast.showText(
+          context,
+          '⚠️ Đang ở chế độ ngoại tuyến: Không thể kết nối máy chủ để cập nhật vị trí mới.',
+          backgroundColor: Colors.amber.shade900,
+          icon: Icons.cloud_off_rounded,
+          duration: const Duration(seconds: 4),
+        );
+        return;
+      }
+
+      // Check iCloud status to alert user if no working Apple account exists
+      final icloudStatus = await accessoryRegistry.fetchICloudStatus();
+      final loginState = icloudStatus['login_state'] ?? '';
+      final List activeAccounts = icloudStatus['accounts'] ?? [];
+      final bool hasLoggedInAccount =
+          activeAccounts.any((a) => (a['login_state'] ?? '').toString().contains('LOGGED_IN'));
 
       if (!hasLoggedInAccount && activeAccounts.isNotEmpty && activeAccounts.every((a) => (a['login_state'] ?? '').toString().contains('REQUIRE_2FA'))) {
         AppToast.showText(
@@ -216,7 +227,7 @@ class _DashboardState extends State<Dashboard> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           final count = accessoryRegistry.accessories.where((a) => a.isActive).length;
-          if (count > 0) {
+          if (count > 0 && !accessoryRegistry.isOffline) {
             AppToast.showText(
               context,
               'Đã nạp và cập nhật vị trí mới nhất cho $count thiết bị!',
@@ -237,8 +248,7 @@ class _DashboardState extends State<Dashboard> {
 
       return Scaffold(
         body: Stack(
-          children: [
-            // Layer 0: Fullscreen Map
+          children: [\n            // Layer 0: Fullscreen Map
             Positioned.fill(
               child: AccessoryMap(
                 mapController: _mapController,
@@ -417,6 +427,41 @@ class _DashboardState extends State<Dashboard> {
                                 ],
                               ),
                             ),
+
+                            // Offline Status Indicator Banner (Desktop)
+                            if (accessoryRegistry.isOffline)
+                              Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade900.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.cloud_off, size: 15, color: Colors.white),
+                                    const SizedBox(width: 6),
+                                    const Expanded(
+                                      child: Text(
+                                        'Ngoại tuyến: Đang xem dữ liệu đã lưu',
+                                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () => accessoryRegistry.syncWithBackendServer(),
+                                      child: const Text(
+                                        'Thử lại',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -432,7 +477,7 @@ class _DashboardState extends State<Dashboard> {
                             : const KeyManagement(),
                       ),
 
-                      // Panel Bottom Toolbar (Nút chuyển đổi động theo tab: Làm mới khi ở Vị trí, Thêm Tag khi ở Quản lý)
+                      // Panel Bottom Toolbar
                       Container(
                         padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                         decoration: BoxDecoration(
@@ -536,6 +581,13 @@ class _DashboardState extends State<Dashboard> {
     // ==========================================
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        ),
         title: Text(
           _tabs[_selectedIndex]['title'] as String,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -549,11 +601,47 @@ class _DashboardState extends State<Dashboard> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: Column(
         children: [
-          _tabs[0]['body'](context),
-          _tabs[1]['body'](context),
+          if (accessoryRegistry.isOffline)
+            Container(
+              width: double.infinity,
+              color: Colors.amber.shade900,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off, size: 16, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Ngoại tuyến: Đang xem dữ liệu đã lưu trên máy',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => accessoryRegistry.syncWithBackendServer(),
+                    child: const Text(
+                      'Thử lại',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _tabs[0]['body'](context),
+                _tabs[1]['body'](context),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -579,4 +667,3 @@ class _DashboardState extends State<Dashboard> {
     accessoryRegistry.saveOrderUpdates(accessories);
   }
 }
-

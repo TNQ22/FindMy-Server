@@ -44,9 +44,12 @@ class ZoneRegistry extends ChangeNotifier {
   }
 
   static const String _prefShowZones = 'SHOW_ZONES_ON_MAP';
+  static const String _cachedZonesKey = 'CACHED_ZONES';
+  static const String _cachedAlertsKey = 'CACHED_ALERTS';
 
   ZoneRegistry() {
     _loadPreferences();
+    _loadCachedData();
   }
 
   void _loadPreferences() {
@@ -61,6 +64,38 @@ class ZoneRegistry extends ChangeNotifier {
         }
       } catch (_) {}
     }
+  }
+
+  void _loadCachedData() {
+    try {
+      String? rawZones;
+      try {
+        rawZones = html.window.localStorage[_cachedZonesKey];
+      } catch (_) {}
+      if (rawZones == null || rawZones.isEmpty) {
+        rawZones = Settings.getValue<String>(_cachedZonesKey, defaultValue: '');
+      }
+      if (rawZones != null && rawZones.isNotEmpty) {
+        final List list = jsonDecode(rawZones);
+        _zones = list.map((item) => ZoneItem.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+
+    try {
+      String? rawAlerts;
+      try {
+        rawAlerts = html.window.localStorage[_cachedAlertsKey];
+      } catch (_) {}
+      if (rawAlerts == null || rawAlerts.isEmpty) {
+        rawAlerts = Settings.getValue<String>(_cachedAlertsKey, defaultValue: '');
+      }
+      if (rawAlerts != null && rawAlerts.isNotEmpty) {
+        final data = jsonDecode(rawAlerts);
+        _totalAlerts = data['total'] as int? ?? 0;
+        final List list = data['items'] as List? ?? [];
+        _alerts = list.map((item) => ZoneAlertItem.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
   }
 
   void toggleShowZonesOnMap(bool val) {
@@ -96,13 +131,20 @@ class ZoneRegistry extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/api/zones/'), headers: _headers);
+      final res = await http.get(Uri.parse('$_baseUrl/api/zones/'), headers: _headers)
+          .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
         _zones = list.map((item) => ZoneItem.fromJson(item as Map<String, dynamic>)).toList();
+        try {
+          html.window.localStorage[_cachedZonesKey] = res.body;
+        } catch (_) {}
+        try {
+          await Settings.setValue<String>(_cachedZonesKey, res.body);
+        } catch (_) {}
       }
     } catch (e) {
-      debugPrint('Error fetching zones: $e');
+      debugPrint('Error fetching zones (offline): $e');
     } finally {
       _loading = false;
       notifyListeners();
@@ -147,7 +189,7 @@ class ZoneRegistry extends ChangeNotifier {
         Uri.parse('$_baseUrl/api/zones/'),
         headers: _headers,
         body: jsonEncode(payload),
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         await fetchZones();
@@ -199,7 +241,7 @@ class ZoneRegistry extends ChangeNotifier {
         Uri.parse('$_baseUrl/api/zones/$zoneId'),
         headers: _headers,
         body: jsonEncode(payload),
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         await fetchZones();
@@ -218,7 +260,7 @@ class ZoneRegistry extends ChangeNotifier {
       final res = await http.delete(
         Uri.parse('$_baseUrl/api/zones/$zoneId'),
         headers: _headers,
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
         _zones.removeWhere((z) => z.id == zoneId);
@@ -241,16 +283,22 @@ class ZoneRegistry extends ChangeNotifier {
         uri = Uri.parse('$uri&device_id=$deviceId');
       }
 
-      final res = await http.get(uri, headers: _headers);
+      final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         _totalAlerts = data['total'] as int? ?? 0;
         final List list = data['items'] as List? ?? [];
         _alerts = list.map((item) => ZoneAlertItem.fromJson(item as Map<String, dynamic>)).toList();
+        try {
+          html.window.localStorage[_cachedAlertsKey] = res.body;
+        } catch (_) {}
+        try {
+          await Settings.setValue<String>(_cachedAlertsKey, res.body);
+        } catch (_) {}
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error fetching alerts: $e');
+      debugPrint('Error fetching alerts (offline): $e');
     }
   }
 
@@ -259,7 +307,7 @@ class ZoneRegistry extends ChangeNotifier {
       final res = await http.delete(
         Uri.parse('$_baseUrl/api/zones/alerts/$alertId'),
         headers: _headers,
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
         _alerts.removeWhere((a) => a.id == alertId);
@@ -278,7 +326,7 @@ class ZoneRegistry extends ChangeNotifier {
       final res = await http.delete(
         Uri.parse('$_baseUrl/api/zones/alerts'),
         headers: _headers,
-      );
+      ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
         _alerts.clear();
@@ -297,7 +345,7 @@ class ZoneRegistry extends ChangeNotifier {
       final res = await http.get(
         Uri.parse('$_baseUrl/api/zones/$zoneId/schedules'),
         headers: _headers,
-      );
+      ).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         List data = jsonDecode(res.body);
         return data
@@ -329,7 +377,7 @@ class ZoneRegistry extends ChangeNotifier {
           'days_of_week': daysOfWeek ?? [1, 2, 3, 4, 5, 6, 7],
           'is_active': isActive,
         }),
-      );
+      ).timeout(const Duration(seconds: 4));
       return res.statusCode == 201;
     } catch (e) {
       debugPrint('Error creating zone schedule: $e');
@@ -356,7 +404,7 @@ class ZoneRegistry extends ChangeNotifier {
           if (daysOfWeek != null) 'days_of_week': daysOfWeek,
           if (isActive != null) 'is_active': isActive,
         }),
-      );
+      ).timeout(const Duration(seconds: 4));
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('Error updating zone schedule: $e');
@@ -369,7 +417,7 @@ class ZoneRegistry extends ChangeNotifier {
       final res = await http.delete(
         Uri.parse('$_baseUrl/api/zones/schedules/$scheduleId'),
         headers: _headers,
-      );
+      ).timeout(const Duration(seconds: 4));
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('Error deleting zone schedule: $e');

@@ -46,6 +46,10 @@ class MyApp extends StatelessWidget {
         title: 'FindMy Server',
         theme: ThemeData(
           useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            scrolledUnderElevation: 0,
+          ),
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.teal,
             primary: Colors.teal,
@@ -67,6 +71,10 @@ class MyApp extends StatelessWidget {
         darkTheme: ThemeData(
           useMaterial3: true,
           brightness: Brightness.dark,
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            scrolledUnderElevation: 0,
+          ),
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.teal,
             primary: Colors.teal,
@@ -103,30 +111,30 @@ class _AppLayoutState extends State<AppLayout> {
   initState() {
     super.initState();
 
-    _initAppConfig().then((_) {
-      if (mounted) {
-        final authState = Provider.of<AuthState>(context, listen: false);
-        final accessoryRegistry = Provider.of<AccessoryRegistry>(context, listen: false);
-        final zoneRegistry = Provider.of<ZoneRegistry>(context, listen: false);
+    final authState = Provider.of<AuthState>(context, listen: false);
+    final accessoryRegistry = Provider.of<AccessoryRegistry>(context, listen: false);
+    final zoneRegistry = Provider.of<ZoneRegistry>(context, listen: false);
 
-        // Wire 401 handler: any 401 in AccessoryRegistry triggers AuthState logout
-        accessoryRegistry.onUnauthorized = () {
-          authState.onUnauthorized();
-        };
+    // Wire 401 handler: any 401 in AccessoryRegistry triggers AuthState logout
+    accessoryRegistry.onUnauthorized = () {
+      authState.onUnauthorized();
+    };
 
-        if (authState.isLoggedIn) {
-          accessoryRegistry.loadAccessories();
-          zoneRegistry.fetchZones();
-          zoneRegistry.fetchAlerts();
-        }
-      }
-    });
+    if (authState.isLoggedIn) {
+      // Immediately load cached accessories and zones without waiting for network config
+      accessoryRegistry.loadAccessories();
+      zoneRegistry.fetchZones();
+      zoneRegistry.fetchAlerts();
+    }
+
+    // Load backend app config in background with short timeout (non-blocking)
+    _initAppConfig();
   }
 
   Future<void> _initAppConfig() async {
     try {
       String baseUrl = getServerBaseUrl();
-      final res = await http.get(Uri.parse('$baseUrl/api/config'));
+      final res = await http.get(Uri.parse('$baseUrl/api/config')).timeout(const Duration(seconds: 2));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['google_client_id'] != null && data['google_client_id'].toString().isNotEmpty) {
