@@ -97,7 +97,8 @@ class AccessoryRegistry extends ChangeNotifier {
   );
 
   Map<String, String> get _headers {
-    Map<String, String> headers = {'Content-Type': 'application/json'};\n    try {
+    Map<String, String> headers = {'Content-Type': 'application/json'};
+    try {
       String token = Settings.getValue<String>(endpointUser, defaultValue: '')!;
       if (token.isEmpty) {
         token = html.window.localStorage['ENDPOINT_USER'] ?? '';

@@ -248,7 +248,8 @@ class _DashboardState extends State<Dashboard> {
 
       return Scaffold(
         body: Stack(
-          children: [\n            // Layer 0: Fullscreen Map
+          children: [
+            // Layer 0: Fullscreen Map
             Positioned.fill(
               child: AccessoryMap(
                 mapController: _mapController,
